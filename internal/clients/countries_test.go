@@ -60,7 +60,7 @@ func TestCountriesClient_GetByISO(t *testing.T) {
 			}))
 			defer srv.Close()
 
-			c := clients.NewCountriesClient(srv.URL, http.DefaultClient, &noopCache{})
+			c := clients.NewCountriesClient(srv.URL, http.DefaultClient, &noopCache{}, 0)
 
 			data, err := c.GetByISO(context.Background(), tt.iso)
 			if (err != nil) != tt.wantErr {
@@ -88,7 +88,7 @@ func TestCountriesClient_CacheHit(t *testing.T) {
 	defer srv.Close()
 
 	cache := newInMemoryCache()
-	c := clients.NewCountriesClient(srv.URL, http.DefaultClient, cache)
+	c := clients.NewCountriesClient(srv.URL, http.DefaultClient, cache, 0)
 
 	// First call — hits server and populates cache
 	if _, err := c.GetByISO(context.Background(), "NO"); err != nil {

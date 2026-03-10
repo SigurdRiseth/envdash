@@ -15,14 +15,18 @@ const currencyCacheTTL = 1 * time.Hour
 
 // CurrencyClient fetches exchange rate data from the course currency API.
 type CurrencyClient struct {
-	baseURL string
-	http    HTTPDoer
-	cache   firebase.CacheRepository
+	baseURL  string
+	http     HTTPDoer
+	cache    firebase.CacheRepository
+	cacheTTL time.Duration
 }
 
 // NewCurrencyClient constructs a CurrencyClient.
-func NewCurrencyClient(baseURL string, http HTTPDoer, cache firebase.CacheRepository) *CurrencyClient {
-	return &CurrencyClient{baseURL: baseURL, http: http, cache: cache}
+func NewCurrencyClient(baseURL string, http HTTPDoer, cache firebase.CacheRepository, cacheTTL time.Duration) *CurrencyClient {
+	if cacheTTL == 0 {
+		cacheTTL = currencyCacheTTL
+	}
+	return &CurrencyClient{baseURL: baseURL, http: http, cache: cache, cacheTTL: cacheTTL}
 }
 
 // GetRates returns exchange rates from the given base currency to each target currency.
@@ -63,7 +67,7 @@ func (c *CurrencyClient) GetRates(ctx context.Context, base string, targets []st
 	}
 
 	if b, err := json.Marshal(allRates); err == nil {
-		_ = c.cache.Set(ctx, key, b, currencyCacheTTL)
+		_ = c.cache.Set(ctx, key, b, c.cacheTTL)
 	}
 
 	return filterRates(allRates, targets), nil

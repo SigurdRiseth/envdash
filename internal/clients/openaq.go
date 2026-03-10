@@ -51,15 +51,19 @@ type openaqMeasurementsResponse struct {
 
 // OpenAQClient fetches air quality data from the OpenAQ v3 API.
 type OpenAQClient struct {
-	baseURL string
-	apiKey  string
-	http    HTTPDoer
-	cache   firebase.CacheRepository
+	baseURL  string
+	apiKey   string
+	http     HTTPDoer
+	cache    firebase.CacheRepository
+	cacheTTL time.Duration
 }
 
 // NewOpenAQClient constructs an OpenAQClient.
-func NewOpenAQClient(baseURL, apiKey string, http HTTPDoer, cache firebase.CacheRepository) *OpenAQClient {
-	return &OpenAQClient{baseURL: baseURL, apiKey: apiKey, http: http, cache: cache}
+func NewOpenAQClient(baseURL, apiKey string, http HTTPDoer, cache firebase.CacheRepository, cacheTTL time.Duration) *OpenAQClient {
+	if cacheTTL == 0 {
+		cacheTTL = openaqCacheTTL
+	}
+	return &OpenAQClient{baseURL: baseURL, apiKey: apiKey, http: http, cache: cache, cacheTTL: cacheTTL}
 }
 
 // GetAirQuality returns aggregated PM2.5 and PM10 readings for monitoring stations
@@ -133,7 +137,7 @@ func (c *OpenAQClient) GetAirQuality(ctx context.Context, lat, lon float64) (*Op
 	}
 
 	if b, err := json.Marshal(data); err == nil {
-		_ = c.cache.Set(ctx, key, b, openaqCacheTTL)
+		_ = c.cache.Set(ctx, key, b, c.cacheTTL)
 	}
 
 	return data, nil

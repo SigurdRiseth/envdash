@@ -28,14 +28,18 @@ type meteoAPIResponse struct {
 
 // MeteoClient fetches weather forecast data from the Open-Meteo API.
 type MeteoClient struct {
-	baseURL string
-	http    HTTPDoer
-	cache   firebase.CacheRepository
+	baseURL  string
+	http     HTTPDoer
+	cache    firebase.CacheRepository
+	cacheTTL time.Duration
 }
 
 // NewMeteoClient constructs a MeteoClient.
-func NewMeteoClient(baseURL string, http HTTPDoer, cache firebase.CacheRepository) *MeteoClient {
-	return &MeteoClient{baseURL: baseURL, http: http, cache: cache}
+func NewMeteoClient(baseURL string, http HTTPDoer, cache firebase.CacheRepository, cacheTTL time.Duration) *MeteoClient {
+	if cacheTTL == 0 {
+		cacheTTL = meteoCacheTTL
+	}
+	return &MeteoClient{baseURL: baseURL, http: http, cache: cache, cacheTTL: cacheTTL}
 }
 
 // GetForecast returns mean temperature and precipitation for the given coordinates.
@@ -83,7 +87,7 @@ func (c *MeteoClient) GetForecast(ctx context.Context, lat, lon float64) (*Meteo
 	}
 
 	if b, err := json.Marshal(data); err == nil {
-		_ = c.cache.Set(ctx, key, b, meteoCacheTTL)
+		_ = c.cache.Set(ctx, key, b, c.cacheTTL)
 	}
 
 	return data, nil

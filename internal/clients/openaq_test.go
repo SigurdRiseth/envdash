@@ -70,7 +70,7 @@ func TestOpenAQClient_GetAirQuality(t *testing.T) {
 			}))
 			defer srv.Close()
 
-			c := clients.NewOpenAQClient(srv.URL, "test-key", http.DefaultClient, &noopCache{})
+			c := clients.NewOpenAQClient(srv.URL, "test-key", http.DefaultClient, &noopCache{}, 0)
 			data, err := c.GetAirQuality(context.Background(), 62.0, 10.0)
 
 			if (err != nil) != tt.wantErr {

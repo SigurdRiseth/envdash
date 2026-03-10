@@ -50,7 +50,7 @@ func TestMeteoClient_GetForecast(t *testing.T) {
 			}))
 			defer srv.Close()
 
-			c := clients.NewMeteoClient(srv.URL, http.DefaultClient, &noopCache{})
+			c := clients.NewMeteoClient(srv.URL, http.DefaultClient, &noopCache{}, 0)
 			data, err := c.GetForecast(context.Background(), 62.0, 10.0)
 
 			if (err != nil) != tt.wantErr {

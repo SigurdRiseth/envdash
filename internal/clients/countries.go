@@ -41,14 +41,18 @@ type countriesAPIResponse struct {
 
 // CountriesClient fetches country data from the REST Countries API.
 type CountriesClient struct {
-	baseURL string
-	http    HTTPDoer
-	cache   firebase.CacheRepository
+	baseURL  string
+	http     HTTPDoer
+	cache    firebase.CacheRepository
+	cacheTTL time.Duration
 }
 
 // NewCountriesClient constructs a CountriesClient.
-func NewCountriesClient(baseURL string, http HTTPDoer, cache firebase.CacheRepository) *CountriesClient {
-	return &CountriesClient{baseURL: baseURL, http: http, cache: cache}
+func NewCountriesClient(baseURL string, http HTTPDoer, cache firebase.CacheRepository, cacheTTL time.Duration) *CountriesClient {
+	if cacheTTL == 0 {
+		cacheTTL = countriesCacheTTL
+	}
+	return &CountriesClient{baseURL: baseURL, http: http, cache: cache, cacheTTL: cacheTTL}
 }
 
 // GetByISO fetches country data for the given ISO 3166-1 alpha-2 code.
@@ -107,7 +111,7 @@ func (c *CountriesClient) GetByISO(ctx context.Context, iso string) (*CountryDat
 	}
 
 	if b, err := json.Marshal(data); err == nil {
-		_ = c.cache.Set(ctx, key, b, countriesCacheTTL)
+		_ = c.cache.Set(ctx, key, b, c.cacheTTL)
 	}
 
 	return data, nil

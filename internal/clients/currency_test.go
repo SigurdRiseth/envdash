@@ -57,7 +57,7 @@ func TestCurrencyClient_GetRates(t *testing.T) {
 			}))
 			defer srv.Close()
 
-			c := clients.NewCurrencyClient(srv.URL, http.DefaultClient, &noopCache{})
+			c := clients.NewCurrencyClient(srv.URL, http.DefaultClient, &noopCache{}, 0)
 			rates, err := c.GetRates(context.Background(), tt.base, tt.targets)
 
 			if (err != nil) != tt.wantErr {

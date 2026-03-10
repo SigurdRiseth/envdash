@@ -36,10 +36,14 @@ type NominatimClient struct {
 	http     HTTPDoer
 	cache    firebase.CacheRepository
 	throttle chan struct{}
+	cacheTTL time.Duration
 }
 
 // NewNominatimClient constructs a NominatimClient with a 1 req/sec rate limiter.
-func NewNominatimClient(baseURL string, http HTTPDoer, cache firebase.CacheRepository) *NominatimClient {
+func NewNominatimClient(baseURL string, http HTTPDoer, cache firebase.CacheRepository, cacheTTL time.Duration) *NominatimClient {
+	if cacheTTL == 0 {
+		cacheTTL = nominatimCacheTTL
+	}
 	throttle := make(chan struct{}, 1)
 	throttle <- struct{}{} // initially available
 
@@ -54,7 +58,7 @@ func NewNominatimClient(baseURL string, http HTTPDoer, cache firebase.CacheRepos
 		}
 	}()
 
-	return &NominatimClient{baseURL: baseURL, http: http, cache: cache, throttle: throttle}
+	return &NominatimClient{baseURL: baseURL, http: http, cache: cache, throttle: throttle, cacheTTL: cacheTTL}
 }
 
 // GetCoordinates returns coordinates for the given ISO country code.
@@ -119,7 +123,7 @@ func (c *NominatimClient) GetCoordinates(ctx context.Context, iso string) (*Nomi
 	data := &NominatimData{Latitude: lat, Longitude: lon}
 
 	if b, err := json.Marshal(data); err == nil {
-		_ = c.cache.Set(ctx, key, b, nominatimCacheTTL)
+		_ = c.cache.Set(ctx, key, b, c.cacheTTL)
 	}
 
 	return data, nil
