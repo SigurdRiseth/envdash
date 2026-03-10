@@ -65,10 +65,11 @@ func NewRouter(
 		}
 	})
 
+	var h http.Handler = mux
 	if authSvc != nil {
-		return apiKeyMiddleware(authSvc, mux)
+		h = apiKeyMiddleware(authSvc, h)
 	}
-	return mux
+	return loggingMiddleware(h)
 }
 
 // isCollectionPath returns true when the URL refers to the collection root
