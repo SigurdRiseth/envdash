@@ -113,12 +113,12 @@ func (h *registrationHandler) update(w http.ResponseWriter, r *http.Request, id 
 		return
 	}
 
-	_, err := h.svc.Update(r.Context(), id, req)
+	updated, err := h.svc.Update(r.Context(), id, req)
 	if err != nil {
 		handleServiceError(w, err)
 		return
 	}
-	w.WriteHeader(http.StatusOK)
+	writeJSON(w, http.StatusOK, updated)
 }
 
 func (h *registrationHandler) patch(w http.ResponseWriter, r *http.Request, id string) {
