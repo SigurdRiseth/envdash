@@ -1,0 +1,26 @@
+services:
+  envdash:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - SERVER_PORT=8080
+      - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}
+      - OPENAQ_API_KEY=${OPENAQ_API_KEY}
+      # Provide credentials as inline JSON (no mounted file needed):
+      - FIREBASE_CREDENTIALS_JSON=${FIREBASE_CREDENTIALS_JSON}
+      # Or mount a credentials file and set the path:
+      # - GOOGLE_APPLICATION_CREDENTIALS=/run/secrets/firebase-key
+      - COUNTRIES_API_URL=${COUNTRIES_API_URL:-http://129.241.150.113:8080/v3.1}
+      - METEO_API_URL=${METEO_API_URL:-https://api.open-meteo.com/v1}
+      - OPENAQ_API_URL=${OPENAQ_API_URL:-https://api.openaq.org/v3}
+      - NOMINATIM_API_URL=${NOMINATIM_API_URL:-https://nominatim.openstreetmap.org}
+      - CURRENCY_API_URL=${CURRENCY_API_URL:-http://129.241.150.113:9090/currency}
+      - CACHE_PURGE_INTERVAL_HOURS=${CACHE_PURGE_INTERVAL_HOURS:-1}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/envdash/v1/status/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
