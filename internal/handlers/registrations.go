@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -92,7 +93,7 @@ func (h *registrationHandler) head(w http.ResponseWriter, r *http.Request) {
 	// Encode to determine Content-Length
 	data, _ := json.Marshal(regs)
 	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Content-Length", strings.TrimSpace(string(rune(len(data)))))
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(data)))
 	w.WriteHeader(http.StatusOK)
 }
 
