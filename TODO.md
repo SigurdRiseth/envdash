@@ -54,12 +54,12 @@ Mark items `[x]` when complete. See `CLAUDE.md` for architecture details.
 - [x] `internal/clients/openaq_test.go`
 - [x] `internal/clients/currency_test.go`
 
-## Tests — Remaining
+## Tests — DONE
 
-- [ ] `internal/firebase/registrations_test.go` (integration, real Firestore, `//go:build integration`)
-- [ ] `internal/firebase/notifications_test.go` (integration, real Firestore)
-- [ ] `internal/firebase/cache_test.go` (integration, real Firestore)
-- [ ] Improve client test coverage (nominatim, cache-hit paths) — currently 64%
+- [x] `internal/firebase/registrations_test.go` (integration, real Firestore, `//go:build integration`)
+- [x] `internal/firebase/notifications_test.go` (integration, real Firestore)
+- [x] `internal/firebase/cache_test.go` (integration, real Firestore)
+- [x] `internal/clients/nominatim_test.go` added — client coverage now 85%
 
 ## Advanced Tasks — DONE
 
@@ -70,14 +70,14 @@ Mark items `[x]` when complete. See `CLAUDE.md` for architecture details.
 - [x] Auto cache purging — background goroutine + startup purge
 - [x] `CACHE_PURGE_INTERVAL_HOURS` env var (default: 1)
 
-## Advanced Tasks — Remaining (Phase C)
+## Advanced Tasks — DONE (Phase C)
 
-- [ ] POST /auth/ — register client, receive API key (`sk-envdash-{hex}`)
-- [ ] DELETE /auth/{key} — revoke API key
-- [ ] Middleware: validate `X-API-Key` header on all routes except `/status/` and `/auth/`
-- [ ] Return 401 for missing key, 403 for invalid/revoked key
-- [ ] Store keys in `api_keys` Firestore collection
-- [ ] Tests for auth middleware
+- [x] POST /auth/ — register client, receive API key (`sk-envdash-{hex}`)
+- [x] DELETE /auth/{key} — revoke API key
+- [x] Middleware: validate `X-API-Key` header on all routes except `/status/` and `/auth/`
+- [x] Return 401 for missing key, 403 for invalid/revoked key
+- [x] Store keys in `api_keys` Firestore collection
+- [x] Tests for auth middleware
 
 ## Deployment — Remaining
 

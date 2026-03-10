@@ -20,7 +20,7 @@ REST web service for PROG2005 — Cloud Technologies. Aggregates live environmen
 | `PATCH /notifications/{id}` (partial update) | Done |
 | Threshold operators `>=` and `<=` | Done |
 | Automatic cache purging | Done |
-| API key authentication | Planned |
+| API key authentication | Done |
 
 ---
 
@@ -61,6 +61,18 @@ Base path: `/envdash/v1`
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET` | `/status/` | Service health and upstream status |
+
+### Auth (API Keys)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/auth/` | Register a new API key — returns `{"apiKey": "sk-envdash-..."}` |
+| `DELETE` | `/auth/{key}` | Revoke an API key |
+
+All endpoints except `/status/` and `/auth/` require an `X-API-Key` header containing a valid key.
+Requests without a key return `401 Unauthorized`; requests with an unknown key return `403 Forbidden`.
+
+
 
 ---
 
@@ -193,6 +205,14 @@ docker run -p 8080:8080 --env-file .env envdash
 docker compose up --build
 ```
 
+### Integration tests (real Firestore)
+
+```bash
+go test -tags=integration ./internal/firebase/...
+```
+
+Requires `FIREBASE_PROJECT_ID` and valid credentials. Tests use `test_` prefixed collections and clean up after themselves.
+
 ---
 
 ## Firebase Setup
@@ -224,11 +244,13 @@ go test ./... -v
 | Package | Coverage |
 |---------|----------|
 | `internal/models` | ~100% |
-| `internal/handlers` | ~87% |
-| `internal/clients` | ~64% |
+| `internal/handlers` | ~88% |
+| `internal/clients` | ~85% |
+| `internal/services` | ~31% |
 
 Handler tests use mock service implementations — no live APIs or Firebase required.
 Client tests use `httptest.NewServer` to serve stub JSON responses.
+Service tests use stub repository implementations.
 
 ---
 
