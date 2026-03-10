@@ -5,98 +5,95 @@ Mark items `[x]` when complete. See `CLAUDE.md` for architecture details.
 
 ---
 
-## Session 1 — Foundation
+## Core Implementation — DONE
 
-- [x] `go.mod`
+- [x] `go.mod` (Go 1.26, module `envdash`)
 - [x] `.gitignore`
 - [x] `CLAUDE.md`
-- [x] `TODO.md`
-- [ ] `.env.example`
-- [ ] `internal/models/registration.go`
-- [ ] `internal/models/dashboard.go`
-- [ ] `internal/models/notification.go`
-- [ ] `internal/models/errors.go`
-- [ ] `internal/config/config.go`
+- [x] `.env.example`
+- [x] `internal/models/registration.go`
+- [x] `internal/models/dashboard.go`
+- [x] `internal/models/notification.go`
+- [x] `internal/models/errors.go`
+- [x] `internal/models/aqi.go` (AQILevel helper + tests)
+- [x] `internal/config/config.go`
+- [x] `internal/firebase/client.go`
+- [x] `internal/firebase/registrations.go`
+- [x] `internal/firebase/notifications.go`
+- [x] `internal/firebase/cache.go`
+- [x] `internal/clients/http.go`
+- [x] `internal/clients/countries.go`
+- [x] `internal/clients/meteo.go`
+- [x] `internal/clients/openaq.go`
+- [x] `internal/clients/nominatim.go`
+- [x] `internal/clients/currency.go`
+- [x] `internal/webhook/dispatcher.go`
+- [x] `internal/services/registration.go`
+- [x] `internal/services/dashboard.go`
+- [x] `internal/services/notification.go`
+- [x] `internal/services/status.go`
+- [x] `internal/handlers/router.go`
+- [x] `internal/handlers/registrations.go`
+- [x] `internal/handlers/dashboards.go`
+- [x] `internal/handlers/notifications.go`
+- [x] `internal/handlers/status.go`
+- [x] `cmd/server/main.go`
+- [x] `Dockerfile` (multi-stage build)
+- [x] `docker-compose.yml`
+- [x] `README.md`
 
-## Session 2 — Firebase + External Clients
+## Tests — DONE
 
-- [ ] `internal/firebase/client.go`
-- [ ] `internal/firebase/registrations.go`
-- [ ] `internal/firebase/notifications.go`
-- [ ] `internal/firebase/cache.go`
-- [ ] `internal/clients/http.go`
-- [ ] `internal/clients/countries.go`
-- [ ] `internal/clients/meteo.go`
-- [ ] `internal/clients/openaq.go`
-- [ ] `internal/clients/nominatim.go`
-- [ ] `internal/clients/currency.go`
+- [x] `internal/models/aqi_test.go`
+- [x] `internal/handlers/registrations_test.go`
+- [x] `internal/handlers/dashboards_test.go`
+- [x] `internal/handlers/notifications_test.go`
+- [x] `internal/handlers/status_test.go`
+- [x] `internal/clients/countries_test.go`
+- [x] `internal/clients/meteo_test.go`
+- [x] `internal/clients/openaq_test.go`
+- [x] `internal/clients/currency_test.go`
 
-## Session 3 — Services + Handlers + Main
+## Tests — Remaining
 
-- [ ] `internal/webhook/dispatcher.go`
-- [ ] `internal/services/registration.go`
-- [ ] `internal/services/dashboard.go`
-- [ ] `internal/services/notification.go`
-- [ ] `internal/services/status.go`
-- [ ] `internal/handlers/router.go`
-- [ ] `internal/handlers/registrations.go`
-- [ ] `internal/handlers/dashboards.go`
-- [ ] `internal/handlers/notifications.go`
-- [ ] `internal/handlers/status.go`
-- [ ] `cmd/server/main.go`
-
-## Session 4 — Tests
-
-- [ ] `internal/handlers/registrations_test.go`
-- [ ] `internal/handlers/dashboards_test.go`
-- [ ] `internal/handlers/notifications_test.go`
-- [ ] `internal/handlers/status_test.go`
-- [ ] `internal/clients/countries_test.go`
-- [ ] `internal/clients/meteo_test.go`
-- [ ] `internal/clients/openaq_test.go`
-- [ ] `internal/clients/currency_test.go`
-- [ ] `internal/firebase/registrations_test.go` (integration, real Firestore)
+- [ ] `internal/firebase/registrations_test.go` (integration, real Firestore, `//go:build integration`)
 - [ ] `internal/firebase/notifications_test.go` (integration, real Firestore)
 - [ ] `internal/firebase/cache_test.go` (integration, real Firestore)
-- [ ] Run `go test ./... -cover` and verify ≥75% coverage
+- [ ] Improve client test coverage (nominatim, cache-hit paths) — currently 64%
 
-## Session 5 — Deployment + Docs
+## Advanced Tasks — DONE
 
-- [ ] `Dockerfile` (multi-stage build)
-- [ ] `docker-compose.yml`
-- [ ] `README.md` (setup, env vars, curl examples, edge cases, contributions)
-- [ ] Deploy to OpenStack SkyHigh
-- [ ] Verify deployed service responds correctly
+- [x] HEAD /registrations/ — return headers only, no body
+- [x] PATCH /registrations/{id} — partial update (only supplied fields)
+- [x] PATCH /notifications/{id} — partial update
+- [x] Extra threshold operators: `>=` and `<=`
+- [x] Auto cache purging — background goroutine + startup purge
+- [x] `CACHE_PURGE_INTERVAL_HOURS` env var (default: 1)
 
----
+## Advanced Tasks — Remaining (Phase C)
 
-## Advanced Tasks
-
-### Phase A (Easy — prioritized)
-- [ ] HEAD /registrations/ — return headers only, no body
-- [ ] PATCH /registrations/{id} — partial update (only supplied fields)
-- [ ] Extra threshold operators: `>=` and `<=` (in addition to `>` and `<`)
-- [ ] PATCH /notifications/{id} — partial update
-
-### Phase B (Medium)
-- [ ] Auto cache purging — background goroutine deletes expired cache docs
-- [ ] `CACHE_PURGE_INTERVAL_HOURS` env var (default: 1)
-- [ ] Purge also runs on startup
-
-### Phase C (Complex — last)
-- [ ] POST /auth/ — register client, receive API key
+- [ ] POST /auth/ — register client, receive API key (`sk-envdash-{hex}`)
 - [ ] DELETE /auth/{key} — revoke API key
-- [ ] Middleware: validate `X-API-Key` header on all routes except /status/ and /auth/
-- [ ] 401 for missing key, 403 for invalid/revoked key
+- [ ] Middleware: validate `X-API-Key` header on all routes except `/status/` and `/auth/`
+- [ ] Return 401 for missing key, 403 for invalid/revoked key
 - [ ] Store keys in `api_keys` Firestore collection
+- [ ] Tests for auth middleware
+
+## Deployment — Remaining
+
+- [ ] Set up Firebase project (create + enable Firestore)
+- [ ] Obtain OpenAQ API key
+- [ ] Deploy to OpenStack SkyHigh instance
+- [ ] Verify deployed service at public URL
+- [ ] Update README with deployed URL
 
 ---
 
-## Known Edge Cases to Document
+## Known Edge Cases (all documented in README)
 
-- If `threshold.field` is not enabled in the dashboard config, the webhook is accepted but never fires
-- If OpenAQ finds no stations within 50km, return `{pm25: -1, pm10: -1, level: "Unknown"}`
-- `lastRetrieval` in dashboard response is always the current server time — never cached
-- Webhook `country` field is the ISO code, not the full country name
-- Webhook matches when `notification.Country == ""` (wildcard) OR `notification.Country == registration.ISOCode`
-- `country` and `isoCode` are both optional in POST /registrations/ but at least one must be present
+- Threshold on disabled field → webhook accepted but never fires
+- No OpenAQ stations within 50km → `{pm25: -1, pm10: -1, level: "Unknown"}`
+- `lastRetrieval` is always real-time, never cached
+- Webhook `country` wildcard: empty string matches all countries
+- `country` and `isoCode` both optional — at least one required
+- Partial upstream failure → affected fields null, others populated
