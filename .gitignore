@@ -37,3 +37,5 @@ firebase-credentials.json
 
 # Build artifacts
 dist/
+
+environment-dashboard-service-firebase-adminsdk.json
