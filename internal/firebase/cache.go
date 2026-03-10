@@ -27,18 +27,19 @@ type cacheDoc struct {
 }
 
 type cacheRepo struct {
-	fs *firestore.Client
+	fs         *firestore.Client
+	collection string
 }
 
 // NewCacheRepo returns a Firestore-backed CacheRepository.
 func NewCacheRepo(fs *firestore.Client) CacheRepository {
-	return &cacheRepo{fs: fs}
+	return &cacheRepo{fs: fs, collection: cacheCollection}
 }
 
 // Get retrieves a cached value by key. Returns (data, true, nil) on hit,
 // (nil, false, nil) on miss or expiry, and (nil, false, err) on error.
 func (r *cacheRepo) Get(ctx context.Context, key string) ([]byte, bool, error) {
-	doc, err := r.fs.Collection(cacheCollection).Doc(sanitiseKey(key)).Get(ctx)
+	doc, err := r.fs.Collection(r.collection).Doc(sanitiseKey(key)).Get(ctx)
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
 			return nil, false, nil
@@ -65,7 +66,7 @@ func (r *cacheRepo) Set(ctx context.Context, key string, data []byte, ttl time.D
 		Data:      string(data),
 		ExpiresAt: time.Now().Add(ttl),
 	}
-	_, err := r.fs.Collection(cacheCollection).Doc(sanitiseKey(key)).Set(ctx, entry)
+	_, err := r.fs.Collection(r.collection).Doc(sanitiseKey(key)).Set(ctx, entry)
 	if err != nil {
 		return fmt.Errorf("cache set %q: %w", key, err)
 	}
@@ -74,7 +75,7 @@ func (r *cacheRepo) Set(ctx context.Context, key string, data []byte, ttl time.D
 
 // Purge deletes all expired cache entries. Returns the number of deleted entries.
 func (r *cacheRepo) Purge(ctx context.Context) (int, error) {
-	docs, err := r.fs.Collection(cacheCollection).
+	docs, err := r.fs.Collection(r.collection).
 		Where("expiresAt", "<", time.Now()).
 		Documents(ctx).GetAll()
 	if err != nil {

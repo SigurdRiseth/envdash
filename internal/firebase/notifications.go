@@ -26,16 +26,17 @@ type NotificationRepository interface {
 }
 
 type notificationRepo struct {
-	fs *firestore.Client
+	fs         *firestore.Client
+	collection string
 }
 
 // NewNotificationRepo returns a Firestore-backed NotificationRepository.
 func NewNotificationRepo(fs *firestore.Client) NotificationRepository {
-	return &notificationRepo{fs: fs}
+	return &notificationRepo{fs: fs, collection: notificationsCollection}
 }
 
 func (r *notificationRepo) Create(ctx context.Context, n *models.Notification) error {
-	_, err := r.fs.Collection(notificationsCollection).Doc(n.ID).Set(ctx, n)
+	_, err := r.fs.Collection(r.collection).Doc(n.ID).Set(ctx, n)
 	if err != nil {
 		return fmt.Errorf("create notification %s: %w", n.ID, err)
 	}
@@ -43,7 +44,7 @@ func (r *notificationRepo) Create(ctx context.Context, n *models.Notification) e
 }
 
 func (r *notificationRepo) Get(ctx context.Context, id string) (*models.Notification, error) {
-	doc, err := r.fs.Collection(notificationsCollection).Doc(id).Get(ctx)
+	doc, err := r.fs.Collection(r.collection).Doc(id).Get(ctx)
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
 			return nil, ErrNotFound
@@ -59,7 +60,7 @@ func (r *notificationRepo) Get(ctx context.Context, id string) (*models.Notifica
 }
 
 func (r *notificationRepo) List(ctx context.Context) ([]models.Notification, error) {
-	docs, err := r.fs.Collection(notificationsCollection).Documents(ctx).GetAll()
+	docs, err := r.fs.Collection(r.collection).Documents(ctx).GetAll()
 	if err != nil {
 		return nil, fmt.Errorf("list notifications: %w", err)
 	}
@@ -76,7 +77,7 @@ func (r *notificationRepo) List(ctx context.Context) ([]models.Notification, err
 }
 
 func (r *notificationRepo) Delete(ctx context.Context, id string) error {
-	_, err := r.fs.Collection(notificationsCollection).Doc(id).Get(ctx)
+	_, err := r.fs.Collection(r.collection).Doc(id).Get(ctx)
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
 			return ErrNotFound
@@ -84,7 +85,7 @@ func (r *notificationRepo) Delete(ctx context.Context, id string) error {
 		return fmt.Errorf("delete notification %s: %w", id, err)
 	}
 
-	_, err = r.fs.Collection(notificationsCollection).Doc(id).Delete(ctx)
+	_, err = r.fs.Collection(r.collection).Doc(id).Delete(ctx)
 	if err != nil {
 		return fmt.Errorf("delete notification %s: %w", id, err)
 	}
@@ -113,7 +114,7 @@ func (r *notificationRepo) ListMatching(ctx context.Context, isoCode, event stri
 }
 
 func (r *notificationRepo) Count(ctx context.Context) (int, error) {
-	docs, err := r.fs.Collection(notificationsCollection).Documents(ctx).GetAll()
+	docs, err := r.fs.Collection(r.collection).Documents(ctx).GetAll()
 	if err != nil {
 		return 0, fmt.Errorf("count notifications: %w", err)
 	}

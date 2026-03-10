@@ -27,16 +27,17 @@ type RegistrationRepository interface {
 }
 
 type registrationRepo struct {
-	fs *firestore.Client
+	fs         *firestore.Client
+	collection string
 }
 
 // NewRegistrationRepo returns a Firestore-backed RegistrationRepository.
 func NewRegistrationRepo(fs *firestore.Client) RegistrationRepository {
-	return &registrationRepo{fs: fs}
+	return &registrationRepo{fs: fs, collection: registrationsCollection}
 }
 
 func (r *registrationRepo) Create(ctx context.Context, reg *models.Registration) error {
-	_, err := r.fs.Collection(registrationsCollection).Doc(reg.ID).Set(ctx, reg)
+	_, err := r.fs.Collection(r.collection).Doc(reg.ID).Set(ctx, reg)
 	if err != nil {
 		return fmt.Errorf("create registration %s: %w", reg.ID, err)
 	}
@@ -44,7 +45,7 @@ func (r *registrationRepo) Create(ctx context.Context, reg *models.Registration)
 }
 
 func (r *registrationRepo) Get(ctx context.Context, id string) (*models.Registration, error) {
-	doc, err := r.fs.Collection(registrationsCollection).Doc(id).Get(ctx)
+	doc, err := r.fs.Collection(r.collection).Doc(id).Get(ctx)
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
 			return nil, ErrNotFound
@@ -60,7 +61,7 @@ func (r *registrationRepo) Get(ctx context.Context, id string) (*models.Registra
 }
 
 func (r *registrationRepo) List(ctx context.Context) ([]models.Registration, error) {
-	docs, err := r.fs.Collection(registrationsCollection).Documents(ctx).GetAll()
+	docs, err := r.fs.Collection(r.collection).Documents(ctx).GetAll()
 	if err != nil {
 		return nil, fmt.Errorf("list registrations: %w", err)
 	}
@@ -77,7 +78,7 @@ func (r *registrationRepo) List(ctx context.Context) ([]models.Registration, err
 }
 
 func (r *registrationRepo) Update(ctx context.Context, reg *models.Registration) error {
-	_, err := r.fs.Collection(registrationsCollection).Doc(reg.ID).Set(ctx, reg)
+	_, err := r.fs.Collection(r.collection).Doc(reg.ID).Set(ctx, reg)
 	if err != nil {
 		return fmt.Errorf("update registration %s: %w", reg.ID, err)
 	}
@@ -86,7 +87,7 @@ func (r *registrationRepo) Update(ctx context.Context, reg *models.Registration)
 
 func (r *registrationRepo) Delete(ctx context.Context, id string) error {
 	// Check existence first so callers can distinguish 404 from other errors.
-	_, err := r.fs.Collection(registrationsCollection).Doc(id).Get(ctx)
+	_, err := r.fs.Collection(r.collection).Doc(id).Get(ctx)
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
 			return ErrNotFound
@@ -94,7 +95,7 @@ func (r *registrationRepo) Delete(ctx context.Context, id string) error {
 		return fmt.Errorf("delete registration %s: %w", id, err)
 	}
 
-	_, err = r.fs.Collection(registrationsCollection).Doc(id).Delete(ctx)
+	_, err = r.fs.Collection(r.collection).Doc(id).Delete(ctx)
 	if err != nil {
 		return fmt.Errorf("delete registration %s: %w", id, err)
 	}
