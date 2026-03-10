@@ -1,0 +1,102 @@
+package firebase
+
+import (
+	"context"
+	"errors"
+	"fmt"
+
+	"cloud.google.com/go/firestore"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
+	"envdash/internal/models"
+)
+
+const registrationsCollection = "registrations"
+
+// ErrNotFound is returned when a document does not exist.
+var ErrNotFound = errors.New("not found")
+
+// RegistrationRepository defines persistence operations for dashboard configurations.
+type RegistrationRepository interface {
+	Create(ctx context.Context, r *models.Registration) error
+	Get(ctx context.Context, id string) (*models.Registration, error)
+	List(ctx context.Context) ([]models.Registration, error)
+	Update(ctx context.Context, r *models.Registration) error
+	Delete(ctx context.Context, id string) error
+}
+
+type registrationRepo struct {
+	fs *firestore.Client
+}
+
+// NewRegistrationRepo returns a Firestore-backed RegistrationRepository.
+func NewRegistrationRepo(fs *firestore.Client) RegistrationRepository {
+	return &registrationRepo{fs: fs}
+}
+
+func (r *registrationRepo) Create(ctx context.Context, reg *models.Registration) error {
+	_, err := r.fs.Collection(registrationsCollection).Doc(reg.ID).Set(ctx, reg)
+	if err != nil {
+		return fmt.Errorf("create registration %s: %w", reg.ID, err)
+	}
+	return nil
+}
+
+func (r *registrationRepo) Get(ctx context.Context, id string) (*models.Registration, error) {
+	doc, err := r.fs.Collection(registrationsCollection).Doc(id).Get(ctx)
+	if err != nil {
+		if status.Code(err) == codes.NotFound {
+			return nil, ErrNotFound
+		}
+		return nil, fmt.Errorf("get registration %s: %w", id, err)
+	}
+
+	var reg models.Registration
+	if err := doc.DataTo(&reg); err != nil {
+		return nil, fmt.Errorf("decode registration %s: %w", id, err)
+	}
+	return &reg, nil
+}
+
+func (r *registrationRepo) List(ctx context.Context) ([]models.Registration, error) {
+	docs, err := r.fs.Collection(registrationsCollection).Documents(ctx).GetAll()
+	if err != nil {
+		return nil, fmt.Errorf("list registrations: %w", err)
+	}
+
+	regs := make([]models.Registration, 0, len(docs))
+	for _, doc := range docs {
+		var reg models.Registration
+		if err := doc.DataTo(&reg); err != nil {
+			return nil, fmt.Errorf("decode registration %s: %w", doc.Ref.ID, err)
+		}
+		regs = append(regs, reg)
+	}
+	return regs, nil
+}
+
+func (r *registrationRepo) Update(ctx context.Context, reg *models.Registration) error {
+	_, err := r.fs.Collection(registrationsCollection).Doc(reg.ID).Set(ctx, reg)
+	if err != nil {
+		return fmt.Errorf("update registration %s: %w", reg.ID, err)
+	}
+	return nil
+}
+
+func (r *registrationRepo) Delete(ctx context.Context, id string) error {
+	// Check existence first so callers can distinguish 404 from other errors.
+	_, err := r.fs.Collection(registrationsCollection).Doc(id).Get(ctx)
+	if err != nil {
+		if status.Code(err) == codes.NotFound {
+			return ErrNotFound
+		}
+		return fmt.Errorf("delete registration %s: %w", id, err)
+	}
+
+	_, err = r.fs.Collection(registrationsCollection).Doc(id).Delete(ctx)
+	if err != nil {
+		return fmt.Errorf("delete registration %s: %w", id, err)
+	}
+	return nil
+}
