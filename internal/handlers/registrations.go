@@ -128,12 +128,12 @@ func (h *registrationHandler) patch(w http.ResponseWriter, r *http.Request, id s
 		return
 	}
 
-	_, err := h.svc.Patch(r.Context(), id, patch)
+	updated, err := h.svc.Patch(r.Context(), id, patch)
 	if err != nil {
 		handleServiceError(w, err)
 		return
 	}
-	w.WriteHeader(http.StatusOK)
+	writeJSON(w, http.StatusOK, updated)
 }
 
 func (h *registrationHandler) delete(w http.ResponseWriter, r *http.Request, id string) {
