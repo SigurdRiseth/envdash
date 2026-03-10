@@ -71,6 +71,9 @@ func (s *dashboardService) Get(ctx context.Context, id string) (*models.Dashboar
 
 	// Fill country-sourced fields
 	if countryData != nil {
+		if resp.Country == "" {
+			resp.Country = countryData.Name
+		}
 		if f.Capital {
 			resp.Features.Capital = &countryData.Capital
 		}
