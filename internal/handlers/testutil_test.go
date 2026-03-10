@@ -182,6 +182,46 @@ func (m *mockStatusService) Get(_ context.Context) services.StatusResponse {
 	return m.response
 }
 
+// ---- Mock AuthService ----
+
+type mockAuthService struct {
+	keys      map[string]bool
+	createErr error
+	deleteErr error
+	existsErr error
+}
+
+func newMockAuthService() *mockAuthService {
+	return &mockAuthService{keys: make(map[string]bool)}
+}
+
+func (m *mockAuthService) Register(_ context.Context) (string, error) {
+	if m.createErr != nil {
+		return "", m.createErr
+	}
+	key := "sk-envdash-testkey1234567890ab"
+	m.keys[key] = true
+	return key, nil
+}
+
+func (m *mockAuthService) Revoke(_ context.Context, key string) error {
+	if m.deleteErr != nil {
+		return m.deleteErr
+	}
+	if !m.keys[key] {
+		return errNotFound
+	}
+	delete(m.keys, key)
+	return nil
+}
+
+func (m *mockAuthService) Validate(_ context.Context, key string) (bool, error) {
+	if m.existsErr != nil {
+		return false, m.existsErr
+	}
+	return m.keys[key], nil
+}
+
 // ---- helpers ----
 
 func ptr[T any](v T) *T { return &v }

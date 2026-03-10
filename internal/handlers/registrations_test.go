@@ -12,13 +12,15 @@ import (
 	"envdash/internal/services"
 )
 
+// newTestRouter builds a router without auth middleware (nil authSvc).
+// Use newTestRouterWithAuth to test auth-related behaviour.
 func newTestRouter(
 	regSvc services.RegistrationService,
 	dashSvc services.DashboardService,
 	notifSvc services.NotificationService,
 	statusSvc services.StatusService,
 ) http.Handler {
-	return handlers.NewRouter(regSvc, dashSvc, notifSvc, statusSvc)
+	return handlers.NewRouter(regSvc, dashSvc, notifSvc, statusSvc, nil)
 }
 
 func TestRegistrations_POST(t *testing.T) {

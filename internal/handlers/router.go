@@ -10,16 +10,20 @@ import (
 const apiPrefix = "/envdash/v1"
 
 // NewRouter registers all routes and returns the root http.Handler.
+// If authSvc is non-nil, an X-API-Key middleware is applied to all routes
+// except /status/ and /auth/.
 func NewRouter(
 	regSvc services.RegistrationService,
 	dashSvc services.DashboardService,
 	notifSvc services.NotificationService,
 	statusSvc services.StatusService,
+	authSvc services.AuthService,
 ) http.Handler {
 	reg := newRegistrationHandler(regSvc)
 	dash := newDashboardHandler(dashSvc)
 	notif := newNotificationHandler(notifSvc)
 	status := newStatusHandler(statusSvc)
+	auth := newAuthHandler(authSvc)
 
 	mux := http.NewServeMux()
 
@@ -51,6 +55,19 @@ func NewRouter(
 	// Status route
 	mux.HandleFunc(apiPrefix+"/status/", status.handle)
 
+	// Auth routes
+	mux.HandleFunc(apiPrefix+"/auth/", func(w http.ResponseWriter, r *http.Request) {
+		path := r.URL.Path
+		if isCollectionPath(path, apiPrefix+"/auth/") {
+			auth.handleCollection(w, r)
+		} else {
+			auth.handleItem(w, r)
+		}
+	})
+
+	if authSvc != nil {
+		return apiKeyMiddleware(authSvc, mux)
+	}
 	return mux
 }
 

@@ -31,19 +31,21 @@ func main() {
 	defer fs.Close()
 
 	// Repositories
-	regRepo   := firebase.NewRegistrationRepo(fs)
-	notifRepo := firebase.NewNotificationRepo(fs)
-	cacheRepo := firebase.NewCacheRepo(fs)
+	regRepo    := firebase.NewRegistrationRepo(fs)
+	notifRepo  := firebase.NewNotificationRepo(fs)
+	cacheRepo  := firebase.NewCacheRepo(fs)
+	apiKeyRepo := firebase.NewAPIKeyRepo(fs)
 
 	// HTTP client (shared across all outbound calls)
 	httpClient := &http.Client{Timeout: 15 * time.Second}
 
 	// External API clients
-	countriesClient := clients.NewCountriesClient(cfg.CountriesBaseURL, httpClient, cacheRepo)
-	meteoClient     := clients.NewMeteoClient(cfg.MeteoBaseURL, httpClient, cacheRepo)
-	openaqClient    := clients.NewOpenAQClient(cfg.OpenAQBaseURL, cfg.OpenAQKey, httpClient, cacheRepo)
-	nominatimClient := clients.NewNominatimClient(cfg.NominatimBaseURL, httpClient, cacheRepo)
-	currencyClient  := clients.NewCurrencyClient(cfg.CurrencyBaseURL, httpClient, cacheRepo)
+	ttlOverride := time.Duration(cfg.CacheTTLHours) * time.Hour
+	countriesClient := clients.NewCountriesClient(cfg.CountriesBaseURL, httpClient, cacheRepo, ttlOverride)
+	meteoClient     := clients.NewMeteoClient(cfg.MeteoBaseURL, httpClient, cacheRepo, ttlOverride)
+	openaqClient    := clients.NewOpenAQClient(cfg.OpenAQBaseURL, cfg.OpenAQKey, httpClient, cacheRepo, ttlOverride)
+	nominatimClient := clients.NewNominatimClient(cfg.NominatimBaseURL, httpClient, cacheRepo, ttlOverride)
+	currencyClient  := clients.NewCurrencyClient(cfg.CurrencyBaseURL, httpClient, cacheRepo, ttlOverride)
 
 	// Nominatim client is constructed but only used when Countries API lacks coordinates.
 	// It is wired into the dashboard service via a closure so the service layer doesn't
@@ -54,10 +56,11 @@ func main() {
 	dispatcher := webhook.NewDispatcher(httpClient)
 
 	// Services
-	regSvc   := services.NewRegistrationService(regRepo, notifRepo, dispatcher)
-	dashSvc  := services.NewDashboardService(regRepo, notifRepo, countriesClient, meteoClient, openaqClient, currencyClient, dispatcher)
-	notifSvc := services.NewNotificationService(notifRepo)
+	regSvc    := services.NewRegistrationService(regRepo, notifRepo, dispatcher)
+	dashSvc   := services.NewDashboardService(regRepo, notifRepo, countriesClient, meteoClient, openaqClient, currencyClient, dispatcher)
+	notifSvc  := services.NewNotificationService(notifRepo)
 	statusSvc := services.NewStatusService(cfg, fs, notifRepo, httpClient, startTime)
+	authSvc   := services.NewAuthService(apiKeyRepo)
 
 	// Background cache purge goroutine (advanced task)
 	if cfg.CachePurgeHours > 0 {
@@ -65,7 +68,7 @@ func main() {
 	}
 
 	// HTTP server
-	router := handlers.NewRouter(regSvc, dashSvc, notifSvc, statusSvc)
+	router := handlers.NewRouter(regSvc, dashSvc, notifSvc, statusSvc, authSvc)
 	addr := ":" + cfg.Port
 	log.Printf("envdash starting on %s", addr)
 
