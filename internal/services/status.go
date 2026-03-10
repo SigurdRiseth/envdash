@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"net/http"
+	"strings"
 	"time"
 
 	"cloud.google.com/go/firestore"
@@ -112,6 +113,9 @@ func (s *statusService) probe(ctx context.Context, url string) int {
 		return 503
 	}
 	req.Header.Set("User-Agent", "envdash/1.0 (status probe)")
+	if s.cfg.OpenAQKey != "" && strings.Contains(url, s.cfg.OpenAQBaseURL) {
+		req.Header.Set("X-API-Key", s.cfg.OpenAQKey)
+	}
 
 	resp, err := s.http.Do(req)
 	if err != nil {
