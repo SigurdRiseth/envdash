@@ -28,7 +28,7 @@ func (h *notificationHandler) handleCollection(w http.ResponseWriter, r *http.Re
 }
 
 func (h *notificationHandler) handleItem(w http.ResponseWriter, r *http.Request) {
-	id := extractID(r.URL.Path, "/notifications/")
+	id := extractID(r.URL.Path, apiPrefix+"/notifications/")
 	if id == "" {
 		writeError(w, http.StatusBadRequest, "missing notification ID")
 		return

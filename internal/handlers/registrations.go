@@ -36,7 +36,7 @@ func (h *registrationHandler) handleCollection(w http.ResponseWriter, r *http.Re
 
 // handleItem routes GET, PUT, PATCH, DELETE requests for a specific registration.
 func (h *registrationHandler) handleItem(w http.ResponseWriter, r *http.Request) {
-	id := extractID(r.URL.Path, "/registrations/")
+	id := extractID(r.URL.Path, apiPrefix+"/registrations/")
 	if id == "" {
 		writeError(w, http.StatusBadRequest, "missing registration ID")
 		return

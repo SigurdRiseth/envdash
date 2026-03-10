@@ -20,7 +20,7 @@ func (h *dashboardHandler) handleItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id := extractID(r.URL.Path, "/dashboards/")
+	id := extractID(r.URL.Path, apiPrefix+"/dashboards/")
 	if id == "" {
 		writeError(w, http.StatusBadRequest, "missing dashboard ID")
 		return
