@@ -83,13 +83,13 @@ func (h *registrationHandler) list(w http.ResponseWriter, r *http.Request) {
 func (h *registrationHandler) head(w http.ResponseWriter, r *http.Request) {
 	regs, err := h.svc.List(r.Context())
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+		handleServiceError(w, err)
 		return
 	}
 	// Encode to determine Content-Length
 	data, err := json.Marshal(regs)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+		writeError(w, http.StatusInternalServerError, "failed to encode response")
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -121,7 +121,7 @@ func (h *registrationHandler) update(w http.ResponseWriter, r *http.Request, id 
 }
 
 func (h *registrationHandler) patch(w http.ResponseWriter, r *http.Request, id string) {
-	var patch map[string]interface{}
+	var patch map[string]any
 	if !decodeJSON(w, r, &patch) {
 		return
 	}
