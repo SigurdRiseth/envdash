@@ -74,22 +74,9 @@ func (c *CountriesClient) GetByISO(ctx context.Context, iso string) (*CountryDat
 		return nil, fmt.Errorf("countries: build request: %w", err)
 	}
 
-	resp, err := c.http.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("countries: request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode == http.StatusNotFound {
-		return nil, fmt.Errorf("countries: country %q not found", iso)
-	}
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("countries: unexpected status %d", resp.StatusCode)
-	}
-
 	var raw countriesAPIResponse
-	if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
-		return nil, fmt.Errorf("countries: decode response: %w", err)
+	if err := fetchJSON(c.http, req, &raw, "countries"); err != nil {
+		return nil, err
 	}
 
 	data := &CountryData{
