@@ -36,7 +36,9 @@ func apiKeyMiddleware(authSvc services.AuthService, next http.Handler) http.Hand
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
 		if strings.HasPrefix(path, apiPrefix+"/status/") ||
-			strings.HasPrefix(path, apiPrefix+"/auth/") {
+			path == apiPrefix+"/status" ||
+			strings.HasPrefix(path, apiPrefix+"/auth/") ||
+			path == apiPrefix+"/auth" {
 			next.ServeHTTP(w, r)
 			return
 		}
