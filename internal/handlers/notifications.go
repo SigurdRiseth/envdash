@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"envdash/internal/models"
@@ -47,8 +46,7 @@ func (h *notificationHandler) handleItem(w http.ResponseWriter, r *http.Request)
 
 func (h *notificationHandler) create(w http.ResponseWriter, r *http.Request) {
 	var req models.NotificationRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid JSON body: "+err.Error())
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 
@@ -81,8 +79,7 @@ func (h *notificationHandler) get(w http.ResponseWriter, r *http.Request, id str
 
 func (h *notificationHandler) patch(w http.ResponseWriter, r *http.Request, id string) {
 	var patch map[string]interface{}
-	if err := json.NewDecoder(r.Body).Decode(&patch); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid JSON body: "+err.Error())
+	if !decodeJSON(w, r, &patch) {
 		return
 	}
 
