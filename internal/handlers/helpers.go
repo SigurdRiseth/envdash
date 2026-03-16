@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"strings"
@@ -8,6 +9,16 @@ import (
 	"envdash/internal/firebase"
 	"envdash/internal/services"
 )
+
+// decodeJSON decodes the JSON request body into v. Returns false and writes a
+// 400 error if decoding fails — callers should return immediately on false.
+func decodeJSON(w http.ResponseWriter, r *http.Request, v any) bool {
+	if err := json.NewDecoder(r.Body).Decode(v); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid JSON body: "+err.Error())
+		return false
+	}
+	return true
+}
 
 // extractID strips the prefix from the URL path and returns the remaining segment.
 func extractID(path, prefix string) string {
