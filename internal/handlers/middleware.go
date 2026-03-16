@@ -35,12 +35,11 @@ func loggingMiddleware(next http.Handler) http.Handler {
 func apiKeyMiddleware(authSvc services.AuthService, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
-		if strings.HasPrefix(path, apiPrefix+"/status/") ||
-			path == apiPrefix+"/status" ||
-			strings.HasPrefix(path, apiPrefix+"/auth/") ||
-			path == apiPrefix+"/auth" {
-			next.ServeHTTP(w, r)
-			return
+		for _, prefix := range apiKeyExemptPrefixes {
+			if strings.HasPrefix(path+"/", prefix) {
+				next.ServeHTTP(w, r)
+				return
+			}
 		}
 
 		key := r.Header.Get("X-API-Key")
