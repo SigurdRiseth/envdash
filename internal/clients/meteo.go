@@ -66,19 +66,9 @@ func (c *MeteoClient) GetForecast(ctx context.Context, lat, lon float64) (*Meteo
 		return nil, fmt.Errorf("meteo: build request: %w", err)
 	}
 
-	resp, err := c.http.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("meteo: request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("meteo: unexpected status %d", resp.StatusCode)
-	}
-
 	var raw meteoAPIResponse
-	if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
-		return nil, fmt.Errorf("meteo: decode response: %w", err)
+	if err := fetchJSON(c.http, req, &raw, "meteo"); err != nil {
+		return nil, err
 	}
 
 	data := &MeteoData{
