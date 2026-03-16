@@ -9,6 +9,13 @@ import (
 
 const apiPrefix = "/envdash/v1"
 
+// apiKeyExemptPrefixes lists route prefixes that bypass X-API-Key authentication.
+// Update this list when adding or removing unauthenticated routes.
+var apiKeyExemptPrefixes = []string{
+	apiPrefix + "/status/",
+	apiPrefix + "/auth/",
+}
+
 // NewRouter registers all routes and returns the root http.Handler.
 // If authSvc is non-nil, an X-API-Key middleware is applied to all routes
 // except /status/ and /auth/.
