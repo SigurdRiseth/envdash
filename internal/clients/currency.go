@@ -48,22 +48,9 @@ func (c *CurrencyClient) GetRates(ctx context.Context, base string, targets []st
 		return nil, fmt.Errorf("currency: build request: %w", err)
 	}
 
-	resp, err := c.http.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("currency: request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode == http.StatusNotFound {
-		return nil, fmt.Errorf("currency: base currency %q not found", base)
-	}
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("currency: unexpected status %d", resp.StatusCode)
-	}
-
 	var allRates map[string]float64
-	if err := json.NewDecoder(resp.Body).Decode(&allRates); err != nil {
-		return nil, fmt.Errorf("currency: decode response: %w", err)
+	if err := fetchJSON(c.http, req, &allRates, "currency"); err != nil {
+		return nil, err
 	}
 
 	if b, err := json.Marshal(allRates); err == nil {
