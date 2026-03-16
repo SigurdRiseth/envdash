@@ -78,7 +78,7 @@ func (h *notificationHandler) get(w http.ResponseWriter, r *http.Request, id str
 }
 
 func (h *notificationHandler) patch(w http.ResponseWriter, r *http.Request, id string) {
-	var patch map[string]interface{}
+	var patch map[string]any
 	if !decodeJSON(w, r, &patch) {
 		return
 	}
