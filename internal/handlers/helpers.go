@@ -10,9 +10,15 @@ import (
 	"envdash/internal/services"
 )
 
-// decodeJSON decodes the JSON request body into v. Returns false and writes a
-// 400 error if decoding fails — callers should return immediately on false.
+// decodeJSON validates Content-Type and decodes the JSON request body into v.
+// Returns false and writes an error response if either check fails — callers
+// should return immediately on false.
 func decodeJSON(w http.ResponseWriter, r *http.Request, v any) bool {
+	ct := r.Header.Get("Content-Type")
+	if !strings.HasPrefix(ct, "application/json") {
+		writeError(w, http.StatusUnsupportedMediaType, "Content-Type must be application/json")
+		return false
+	}
 	if err := json.NewDecoder(r.Body).Decode(v); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid JSON body: "+err.Error())
 		return false
