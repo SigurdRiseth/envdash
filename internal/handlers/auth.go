@@ -23,7 +23,7 @@ func (h *authHandler) handleCollection(w http.ResponseWriter, r *http.Request) {
 
 	key, err := h.svc.Register(r.Context())
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to register API key")
+		handleServiceError(w, err)
 		return
 	}
 
