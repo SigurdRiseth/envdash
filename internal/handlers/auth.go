@@ -1,10 +1,8 @@
 package handlers
 
 import (
-	"errors"
 	"net/http"
 
-	"envdash/internal/firebase"
 	"envdash/internal/services"
 )
 
@@ -46,11 +44,7 @@ func (h *authHandler) handleItem(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.svc.Revoke(r.Context(), key); err != nil {
-		if errors.Is(err, firebase.ErrNotFound) {
-			writeError(w, http.StatusNotFound, "API key not found")
-			return
-		}
-		writeError(w, http.StatusInternalServerError, "failed to revoke API key")
+		handleServiceError(w, err)
 		return
 	}
 
