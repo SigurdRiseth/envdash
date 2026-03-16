@@ -9,15 +9,21 @@ import (
 	"envdash/internal/services"
 )
 
+// registrationHandler handles HTTP requests for dashboard registrations.
+// It delegates all business logic to a RegistrationService and only concerns
+// itself with request parsing, response formatting, and error translation.
 type registrationHandler struct {
 	svc services.RegistrationService
 }
 
+// newRegistrationHandler creates a registrationHandler backed by the given RegistrationService.
 func newRegistrationHandler(svc services.RegistrationService) *registrationHandler {
 	return &registrationHandler{svc: svc}
 }
 
-// handleRegistrations routes POST and GET (collection) requests.
+// handleCollection routes POST, GET, and HEAD requests for the registrations collection.
+// POST creates a new registration, GET lists all registrations, and HEAD returns
+// collection metadata headers without a body. All other methods return 405.
 func (h *registrationHandler) handleCollection(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodPost:
@@ -31,7 +37,9 @@ func (h *registrationHandler) handleCollection(w http.ResponseWriter, r *http.Re
 	}
 }
 
-// handleItem routes GET, PUT, PATCH, DELETE requests for a specific registration.
+// handleItem routes GET, PUT, PATCH, and DELETE requests for a specific registration.
+// The registration ID is extracted from the URL path. Returns 400 Bad Request
+// if no ID segment is present, and 405 Method Not Allowed for unsupported methods.
 func (h *registrationHandler) handleItem(w http.ResponseWriter, r *http.Request) {
 	id := extractID(r.URL.Path, apiPrefix+"/registrations/")
 	if id == "" {
@@ -52,6 +60,9 @@ func (h *registrationHandler) handleItem(w http.ResponseWriter, r *http.Request)
 	}
 }
 
+// create handles POST /registrations/ — create a new dashboard registration.
+// Decodes a RegistrationRequest from the JSON body and delegates to the service.
+// Responds 201 Created with the new registration's ID and creation timestamp.
 func (h *registrationHandler) create(w http.ResponseWriter, r *http.Request) {
 	var req models.RegistrationRequest
 	if !decodeJSON(w, r, &req) {
@@ -70,6 +81,8 @@ func (h *registrationHandler) create(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// list handles GET /registrations/ — return all registered dashboards.
+// Always responds 200 OK; returns an empty array if no registrations exist.
 func (h *registrationHandler) list(w http.ResponseWriter, r *http.Request) {
 	regs, err := h.svc.List(r.Context())
 	if err != nil {
@@ -79,7 +92,9 @@ func (h *registrationHandler) list(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, regs)
 }
 
-// head returns the same headers as GET /registrations/ but with no body.
+// head handles HEAD /registrations/ — return collection metadata without a response body.
+// Sets Content-Type and Content-Length to the same values a GET would produce,
+// allowing clients to determine payload size before making a full request.
 func (h *registrationHandler) head(w http.ResponseWriter, r *http.Request) {
 	regs, err := h.svc.List(r.Context())
 	if err != nil {
@@ -97,6 +112,9 @@ func (h *registrationHandler) head(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+// get handles GET /registrations/{id} — return a single registration by ID.
+// Responds 200 OK with the full registration document, or 404 Not Found if
+// no registration with the given ID exists.
 func (h *registrationHandler) get(w http.ResponseWriter, r *http.Request, id string) {
 	reg, err := h.svc.Get(r.Context(), id)
 	if err != nil {
@@ -106,6 +124,9 @@ func (h *registrationHandler) get(w http.ResponseWriter, r *http.Request, id str
 	writeJSON(w, http.StatusOK, reg)
 }
 
+// update handles PUT /registrations/{id} — fully replace an existing registration.
+// All fields must be provided in the request body; omitted fields are overwritten
+// with zero values. Responds 200 OK with the updated registration on success.
 func (h *registrationHandler) update(w http.ResponseWriter, r *http.Request, id string) {
 	var req models.RegistrationRequest
 	if !decodeJSON(w, r, &req) {
@@ -120,6 +141,9 @@ func (h *registrationHandler) update(w http.ResponseWriter, r *http.Request, id 
 	writeJSON(w, http.StatusOK, updated)
 }
 
+// patch handles PATCH /registrations/{id} — partially update a registration.
+// Only the fields present in the JSON body are updated; all other fields are
+// left unchanged. Responds 200 OK with the full updated registration.
 func (h *registrationHandler) patch(w http.ResponseWriter, r *http.Request, id string) {
 	var patch map[string]any
 	if !decodeJSON(w, r, &patch) {
@@ -134,6 +158,8 @@ func (h *registrationHandler) patch(w http.ResponseWriter, r *http.Request, id s
 	writeJSON(w, http.StatusOK, updated)
 }
 
+// delete handles DELETE /registrations/{id} — permanently remove a registration.
+// Responds 204 No Content on success, or 404 Not Found if the ID does not exist.
 func (h *registrationHandler) delete(w http.ResponseWriter, r *http.Request, id string) {
 	if err := h.svc.Delete(r.Context(), id); err != nil {
 		handleServiceError(w, err)
@@ -141,4 +167,3 @@ func (h *registrationHandler) delete(w http.ResponseWriter, r *http.Request, id 
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
-
