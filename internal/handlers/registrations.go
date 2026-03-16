@@ -73,7 +73,7 @@ func (h *registrationHandler) create(w http.ResponseWriter, r *http.Request) {
 func (h *registrationHandler) list(w http.ResponseWriter, r *http.Request) {
 	regs, err := h.svc.List(r.Context())
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to list registrations: "+err.Error())
+		handleServiceError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, regs)

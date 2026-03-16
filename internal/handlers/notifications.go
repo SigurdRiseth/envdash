@@ -62,7 +62,7 @@ func (h *notificationHandler) create(w http.ResponseWriter, r *http.Request) {
 func (h *notificationHandler) list(w http.ResponseWriter, r *http.Request) {
 	ns, err := h.svc.List(r.Context())
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to list notifications: "+err.Error())
+		handleServiceError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, ns)
