@@ -54,8 +54,7 @@ func (h *registrationHandler) handleItem(w http.ResponseWriter, r *http.Request)
 
 func (h *registrationHandler) create(w http.ResponseWriter, r *http.Request) {
 	var req models.RegistrationRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid JSON body: "+err.Error())
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 
@@ -105,8 +104,7 @@ func (h *registrationHandler) get(w http.ResponseWriter, r *http.Request, id str
 
 func (h *registrationHandler) update(w http.ResponseWriter, r *http.Request, id string) {
 	var req models.RegistrationRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid JSON body: "+err.Error())
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 
@@ -120,8 +118,7 @@ func (h *registrationHandler) update(w http.ResponseWriter, r *http.Request, id 
 
 func (h *registrationHandler) patch(w http.ResponseWriter, r *http.Request, id string) {
 	var patch map[string]interface{}
-	if err := json.NewDecoder(r.Body).Decode(&patch); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid JSON body: "+err.Error())
+	if !decodeJSON(w, r, &patch) {
 		return
 	}
 
