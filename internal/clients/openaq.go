@@ -39,16 +39,6 @@ type openaqLocationsResponse struct {
 	} `json:"results"`
 }
 
-// openaqMeasurementsResponse is the response from GET /v3/measurements.
-type openaqMeasurementsResponse struct {
-	Results []struct {
-		Parameter struct {
-			Name string `json:"name"`
-		} `json:"parameter"`
-		Value float64 `json:"value"`
-	} `json:"results"`
-}
-
 // OpenAQClient fetches air quality data from the OpenAQ v3 API.
 type OpenAQClient struct {
 	baseURL  string
