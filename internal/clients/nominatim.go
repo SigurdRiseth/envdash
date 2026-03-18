@@ -92,19 +92,9 @@ func (c *NominatimClient) GetCoordinates(ctx context.Context, iso string) (*Nomi
 	}
 	req.Header.Set("User-Agent", nominatimUserAgent)
 
-	resp, err := c.http.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("nominatim: request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("nominatim: unexpected status %d", resp.StatusCode)
-	}
-
 	var results []nominatimResult
-	if err := json.NewDecoder(resp.Body).Decode(&results); err != nil {
-		return nil, fmt.Errorf("nominatim: decode response: %w", err)
+	if err := fetchJSON(c.http, req, &results, "nominatim"); err != nil {
+		return nil, err
 	}
 
 	if len(results) == 0 {
