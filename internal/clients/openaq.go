@@ -81,19 +81,9 @@ func (c *OpenAQClient) GetAirQuality(ctx context.Context, lat, lon float64) (*Op
 	}
 	req.Header.Set("X-API-Key", c.apiKey)
 
-	resp, err := c.http.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("openaq: request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("openaq: unexpected status %d", resp.StatusCode)
-	}
-
 	var raw openaqLocationsResponse
-	if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
-		return nil, fmt.Errorf("openaq: decode locations response: %w", err)
+	if err := fetchJSON(c.http, req, &raw, "openaq"); err != nil {
+		return nil, err
 	}
 
 	if len(raw.Results) == 0 {
