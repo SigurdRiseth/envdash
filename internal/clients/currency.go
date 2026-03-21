@@ -20,7 +20,8 @@ type CurrencyClient struct {
 	cacheTTL time.Duration
 }
 
-// NewCurrencyClient constructs a CurrencyClient.
+// NewCurrencyClient constructs a CurrencyClient. If cacheTTL is 0 it
+// defaults to 1 hour.
 func NewCurrencyClient(baseURL string, http HTTPDoer, cache firebase.CacheRepository, cacheTTL time.Duration) *CurrencyClient {
 	if cacheTTL == 0 {
 		cacheTTL = currencyCacheTTL
@@ -28,8 +29,9 @@ func NewCurrencyClient(baseURL string, http HTTPDoer, cache firebase.CacheReposi
 	return &CurrencyClient{baseURL: baseURL, http: http, cache: cache, cacheTTL: cacheTTL}
 }
 
-// GetRates returns exchange rates from the given base currency to each target currency.
-// Results are cached for 1 hour.
+// GetRates returns exchange rates from base to each currency in targets.
+// base and all keys in targets are normalised to upper-case. The full rate
+// map for base is cached for 1 hour; only the requested subset is returned.
 func (c *CurrencyClient) GetRates(ctx context.Context, base string, targets []string) (map[string]float64, error) {
 	base = strings.ToUpper(base)
 	key := "currency:" + base

@@ -33,7 +33,8 @@ type MeteoClient struct {
 	cacheTTL time.Duration
 }
 
-// NewMeteoClient constructs a MeteoClient.
+// NewMeteoClient constructs a MeteoClient. If cacheTTL is 0 it defaults to
+// 3 hours.
 func NewMeteoClient(baseURL string, http HTTPDoer, cache firebase.CacheRepository, cacheTTL time.Duration) *MeteoClient {
 	if cacheTTL == 0 {
 		cacheTTL = meteoCacheTTL

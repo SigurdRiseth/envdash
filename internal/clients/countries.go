@@ -46,7 +46,8 @@ type CountriesClient struct {
 	cacheTTL time.Duration
 }
 
-// NewCountriesClient constructs a CountriesClient.
+// NewCountriesClient constructs a CountriesClient. If cacheTTL is 0 it
+// defaults to 24 hours.
 func NewCountriesClient(baseURL string, http HTTPDoer, cache firebase.CacheRepository, cacheTTL time.Duration) *CountriesClient {
 	if cacheTTL == 0 {
 		cacheTTL = countriesCacheTTL
@@ -55,7 +56,8 @@ func NewCountriesClient(baseURL string, http HTTPDoer, cache firebase.CacheRepos
 }
 
 // GetByISO fetches country data for the given ISO 3166-1 alpha-2 code.
-// Results are cached in Firestore for 24 hours.
+// The code is normalised to upper-case before the request is made.
+// Results are cached for 24 hours (or the TTL passed to NewCountriesClient).
 func (c *CountriesClient) GetByISO(ctx context.Context, iso string) (*CountryData, error) {
 	iso = strings.ToUpper(iso)
 	key := "countries:" + iso

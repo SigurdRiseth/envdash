@@ -15,9 +15,9 @@ const openaqCacheTTL = 1 * time.Hour
 
 // OpenAQData holds aggregated air quality readings.
 type OpenAQData struct {
-	PM25  float64
-	PM10  float64
-	Level string
+	PM25  float64 // µg/m³ mean across nearby stations; -1 if no data
+	PM10  float64 // µg/m³ mean across nearby stations; -1 if no data
+	Level string  // EPA AQI category derived from PM2.5 (e.g. "Good", "Moderate")
 }
 
 // openaqLocationsResponse is the response from GET /v3/locations.
@@ -47,7 +47,8 @@ type OpenAQClient struct {
 	cacheTTL time.Duration
 }
 
-// NewOpenAQClient constructs an OpenAQClient.
+// NewOpenAQClient constructs an OpenAQClient. apiKey is sent as the
+// X-API-Key header on every request. If cacheTTL is 0 it defaults to 1 hour.
 func NewOpenAQClient(baseURL, apiKey string, http HTTPDoer, cache firebase.CacheRepository, cacheTTL time.Duration) *OpenAQClient {
 	if cacheTTL == 0 {
 		cacheTTL = openaqCacheTTL

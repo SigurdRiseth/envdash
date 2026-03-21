@@ -38,7 +38,9 @@ type NominatimClient struct {
 	cacheTTL time.Duration
 }
 
-// NewNominatimClient constructs a NominatimClient with a 1 req/sec rate limiter.
+// NewNominatimClient constructs a NominatimClient with a 1 req/sec rate
+// limiter backed by a buffered channel refilled by a background ticker.
+// If cacheTTL is 0 it defaults to 24 hours.
 func NewNominatimClient(baseURL string, http HTTPDoer, cache firebase.CacheRepository, cacheTTL time.Duration) *NominatimClient {
 	if cacheTTL == 0 {
 		cacheTTL = nominatimCacheTTL
