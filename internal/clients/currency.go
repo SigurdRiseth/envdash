@@ -60,6 +60,8 @@ func (c *CurrencyClient) GetRates(ctx context.Context, base string, targets []st
 	return filterRates(allRates, targets), nil
 }
 
+// filterRates returns a subset of all containing only the keys in targets.
+// Keys are upper-cased before lookup. Returns nil if targets is empty.
 func filterRates(all map[string]float64, targets []string) map[string]float64 {
 	if len(targets) == 0 {
 		return nil

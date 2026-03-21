@@ -83,13 +83,3 @@ func (c *MeteoClient) GetForecast(ctx context.Context, lat, lon float64) (*Meteo
 	return data, nil
 }
 
-func mean(vals []float64) float64 {
-	if len(vals) == 0 {
-		return 0
-	}
-	var sum float64
-	for _, v := range vals {
-		sum += v
-	}
-	return sum / float64(len(vals))
-}
