@@ -10,11 +10,6 @@ import (
 	"envdash/internal/webhook"
 )
 
-// ValidationError is an alias so callers that already import services can still
-// use errors.As with *models.ValidationError through this package.
-// Deprecated: use models.ValidationError directly.
-type ValidationError = models.ValidationError
-
 // RegistrationService manages dashboard configuration lifecycle.
 type RegistrationService interface {
 	Create(ctx context.Context, req models.RegistrationRequest) (*models.Registration, error)

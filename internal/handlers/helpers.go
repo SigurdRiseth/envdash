@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"envdash/internal/firebase"
-	"envdash/internal/services"
+	"envdash/internal/models"
 )
 
 // decodeJSON validates the request Content-Type and decodes the JSON body into v.
@@ -39,14 +39,14 @@ func extractID(path, prefix string) string {
 
 // handleServiceError translates service-layer errors into appropriate HTTP responses.
 // firebase.ErrNotFound → 404 Not Found
-// *services.ValidationError → 400 Bad Request (with the validation message)
+// *models.ValidationError → 400 Bad Request (with the validation message)
 // all other errors → 500 Internal Server Error
 func handleServiceError(w http.ResponseWriter, err error) {
 	if errors.Is(err, firebase.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "not found")
 		return
 	}
-	var ve *services.ValidationError
+	var ve *models.ValidationError
 	if errors.As(err, &ve) {
 		writeError(w, http.StatusBadRequest, ve.Message)
 		return

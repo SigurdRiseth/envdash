@@ -68,7 +68,7 @@ func (s *notificationService) Patch(ctx context.Context, id string, patch map[st
 
 	if v, ok := patch["url"].(string); ok {
 		if _, err := url.ParseRequestURI(v); err != nil {
-			return nil, &ValidationError{Message: "invalid url"}
+			return nil, &models.ValidationError{Message: "invalid url"}
 		}
 		existing.URL = v
 	}
@@ -77,7 +77,7 @@ func (s *notificationService) Patch(ctx context.Context, id string, patch map[st
 	}
 	if v, ok := patch["event"].(string); ok {
 		if !models.ValidEvents[v] {
-			return nil, &ValidationError{Message: fmt.Sprintf("invalid event %q", v)}
+			return nil, &models.ValidationError{Message: fmt.Sprintf("invalid event %q", v)}
 		}
 		existing.Event = v
 	}
@@ -111,10 +111,10 @@ func parseThresholdMap(m map[string]interface{}) (*models.Threshold, error) {
 		t.Value = v
 	}
 	if !models.ValidThresholdFields[t.Field] {
-		return nil, &ValidationError{Message: fmt.Sprintf("invalid threshold field %q", t.Field)}
+		return nil, &models.ValidationError{Message: fmt.Sprintf("invalid threshold field %q", t.Field)}
 	}
 	if !models.ValidThresholdOperators[t.Operator] {
-		return nil, &ValidationError{Message: fmt.Sprintf("invalid threshold operator %q", t.Operator)}
+		return nil, &models.ValidationError{Message: fmt.Sprintf("invalid threshold operator %q", t.Operator)}
 	}
 	return t, nil
 }

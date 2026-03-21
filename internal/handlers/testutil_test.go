@@ -28,7 +28,7 @@ func (m *mockRegistrationService) Create(_ context.Context, req models.Registrat
 		return nil, m.createError
 	}
 	if req.Country == "" && req.ISOCode == "" {
-		return nil, &services.ValidationError{Message: "at least one of 'country' or 'isoCode' is required"}
+		return nil, &models.ValidationError{Message: "at least one of 'country' or 'isoCode' is required"}
 	}
 	reg := &models.Registration{
 		ID:         "test-id-001",
@@ -118,13 +118,13 @@ func newMockNotifService() *mockNotificationService {
 
 func (m *mockNotificationService) Create(_ context.Context, req models.NotificationRequest) (*models.Notification, error) {
 	if req.URL == "" {
-		return nil, &services.ValidationError{Message: "'url' is required"}
+		return nil, &models.ValidationError{Message: "'url' is required"}
 	}
 	if !models.ValidEvents[req.Event] {
-		return nil, &services.ValidationError{Message: "invalid event"}
+		return nil, &models.ValidationError{Message: "invalid event"}
 	}
 	if req.Event == models.EventThreshold && req.Threshold == nil {
-		return nil, &services.ValidationError{Message: "'threshold' is required for THRESHOLD event"}
+		return nil, &models.ValidationError{Message: "'threshold' is required for THRESHOLD event"}
 	}
 	n := &models.Notification{
 		ID:        "notif-id-001",

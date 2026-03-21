@@ -12,4 +12,5 @@ type ValidationError struct {
 	Message string
 }
 
+// Error implements the error interface, returning the validation message.
 func (e *ValidationError) Error() string { return e.Message }

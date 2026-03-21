@@ -23,11 +23,11 @@ var ValidEvents = map[string]bool{
 	EventThreshold: true,
 }
 
-// Valid threshold fields and operators.
-var (
-	ValidThresholdFields    = map[string]bool{"pm25": true, "pm10": true, "temperature": true, "precipitation": true}
-	ValidThresholdOperators = map[string]bool{">": true, "<": true, ">=": true, "<=": true}
-)
+// ValidThresholdFields is the set of measurement fields that can be used in a Threshold.
+var ValidThresholdFields = map[string]bool{"pm25": true, "pm10": true, "temperature": true, "precipitation": true}
+
+// ValidThresholdOperators is the set of comparison operators accepted in a Threshold.
+var ValidThresholdOperators = map[string]bool{">": true, "<": true, ">=": true, "<=": true}
 
 // Notification represents a persisted webhook registration.
 type Notification struct {
@@ -94,7 +94,9 @@ type WebhookPayload struct {
 	Details *ThresholdDetails `json:"details,omitempty"`
 }
 
-// ThresholdDetails is included in webhook payloads for THRESHOLD events.
+// ThresholdDetails is included in THRESHOLD webhook payloads to describe what
+// triggered the notification: the monitored field, the configured threshold
+// condition, and the live measured value that crossed it.
 type ThresholdDetails struct {
 	Field         string  `json:"field"`
 	Operator      string  `json:"operator"`
