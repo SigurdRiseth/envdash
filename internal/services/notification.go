@@ -29,7 +29,7 @@ func NewNotificationService(notifs firebase.NotificationRepository) Notification
 }
 
 func (s *notificationService) Create(ctx context.Context, req models.NotificationRequest) (*models.Notification, error) {
-	if err := validateNotificationRequest(req); err != nil {
+	if err := req.Validate(); err != nil {
 		return nil, err
 	}
 
@@ -97,30 +97,6 @@ func (s *notificationService) Patch(ctx context.Context, id string, patch map[st
 		return nil, fmt.Errorf("patch notification: %w", err)
 	}
 	return existing, nil
-}
-
-func validateNotificationRequest(req models.NotificationRequest) error {
-	if req.URL == "" {
-		return &ValidationError{Message: "'url' is required"}
-	}
-	if _, err := url.ParseRequestURI(req.URL); err != nil {
-		return &ValidationError{Message: "invalid url"}
-	}
-	if !models.ValidEvents[req.Event] {
-		return &ValidationError{Message: fmt.Sprintf("invalid event %q; must be one of REGISTER, CHANGE, DELETE, INVOKE, THRESHOLD", req.Event)}
-	}
-	if req.Event == models.EventThreshold {
-		if req.Threshold == nil {
-			return &ValidationError{Message: "'threshold' is required for THRESHOLD event"}
-		}
-		if !models.ValidThresholdFields[req.Threshold.Field] {
-			return &ValidationError{Message: fmt.Sprintf("invalid threshold field %q; must be pm25, pm10, temperature, or precipitation", req.Threshold.Field)}
-		}
-		if !models.ValidThresholdOperators[req.Threshold.Operator] {
-			return &ValidationError{Message: fmt.Sprintf("invalid threshold operator %q; must be >, <, >=, or <=", req.Threshold.Operator)}
-		}
-	}
-	return nil
 }
 
 func parseThresholdMap(m map[string]interface{}) (*models.Threshold, error) {
