@@ -2,7 +2,6 @@ package clients
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -47,11 +46,8 @@ func NewMeteoClient(baseURL string, http HTTPDoer, cache firebase.CacheRepositor
 func (c *MeteoClient) GetForecast(ctx context.Context, lat, lon float64) (*MeteoData, error) {
 	key := fmt.Sprintf("meteo:%.4f,%.4f", lat, lon)
 
-	if cached, ok, err := c.cache.Get(ctx, key); err == nil && ok {
-		var data MeteoData
-		if json.Unmarshal(cached, &data) == nil {
-			return &data, nil
-		}
+	if data, ok := cacheGet[MeteoData](ctx, c.cache, key); ok {
+		return &data, nil
 	}
 
 	params := url.Values{}
@@ -76,9 +72,7 @@ func (c *MeteoClient) GetForecast(ctx context.Context, lat, lon float64) (*Meteo
 		Precipitation: mean(raw.Hourly.Precipitation),
 	}
 
-	if b, err := json.Marshal(data); err == nil {
-		_ = c.cache.Set(ctx, key, b, c.cacheTTL)
-	}
+	cacheSet(ctx, c.cache, key, c.cacheTTL, data)
 
 	return data, nil
 }

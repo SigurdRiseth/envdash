@@ -2,7 +2,6 @@ package clients
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -35,11 +34,8 @@ func (c *CurrencyClient) GetRates(ctx context.Context, base string, targets []st
 	base = strings.ToUpper(base)
 	key := "currency:" + base
 
-	if cached, ok, err := c.cache.Get(ctx, key); err == nil && ok {
-		var allRates map[string]float64
-		if json.Unmarshal(cached, &allRates) == nil {
-			return filterRates(allRates, targets), nil
-		}
+	if allRates, ok := cacheGet[map[string]float64](ctx, c.cache, key); ok {
+		return filterRates(allRates, targets), nil
 	}
 
 	reqURL := fmt.Sprintf("%s/%s", c.baseURL, base)
@@ -53,9 +49,7 @@ func (c *CurrencyClient) GetRates(ctx context.Context, base string, targets []st
 		return nil, err
 	}
 
-	if b, err := json.Marshal(allRates); err == nil {
-		_ = c.cache.Set(ctx, key, b, c.cacheTTL)
-	}
+	cacheSet(ctx, c.cache, key, c.cacheTTL, allRates)
 
 	return filterRates(allRates, targets), nil
 }

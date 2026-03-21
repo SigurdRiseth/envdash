@@ -2,7 +2,6 @@ package clients
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -61,11 +60,8 @@ func NewOpenAQClient(baseURL, apiKey string, http HTTPDoer, cache firebase.Cache
 func (c *OpenAQClient) GetAirQuality(ctx context.Context, lat, lon float64) (*OpenAQData, error) {
 	key := fmt.Sprintf("openaq:%.4f,%.4f", lat, lon)
 
-	if cached, ok, err := c.cache.Get(ctx, key); err == nil && ok {
-		var data OpenAQData
-		if json.Unmarshal(cached, &data) == nil {
-			return &data, nil
-		}
+	if data, ok := cacheGet[OpenAQData](ctx, c.cache, key); ok {
+		return &data, nil
 	}
 
 	// Query locations within 50 km and fetch latest measurements
@@ -116,9 +112,7 @@ func (c *OpenAQClient) GetAirQuality(ctx context.Context, lat, lon float64) (*Op
 		data.PM10 = mean(pm10Vals)
 	}
 
-	if b, err := json.Marshal(data); err == nil {
-		_ = c.cache.Set(ctx, key, b, c.cacheTTL)
-	}
+	cacheSet(ctx, c.cache, key, c.cacheTTL, data)
 
 	return data, nil
 }

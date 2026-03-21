@@ -2,7 +2,6 @@ package clients
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -61,11 +60,8 @@ func (c *CountriesClient) GetByISO(ctx context.Context, iso string) (*CountryDat
 	iso = strings.ToUpper(iso)
 	key := "countries:" + iso
 
-	if cached, ok, err := c.cache.Get(ctx, key); err == nil && ok {
-		var data CountryData
-		if json.Unmarshal(cached, &data) == nil {
-			return &data, nil
-		}
+	if data, ok := cacheGet[CountryData](ctx, c.cache, key); ok {
+		return &data, nil
 	}
 
 	url := fmt.Sprintf("%s/alpha/%s?fields=name,capital,latlng,population,area,currencies", c.baseURL, iso)
@@ -97,9 +93,7 @@ func (c *CountriesClient) GetByISO(ctx context.Context, iso string) (*CountryDat
 		break // use first (only) currency
 	}
 
-	if b, err := json.Marshal(data); err == nil {
-		_ = c.cache.Set(ctx, key, b, c.cacheTTL)
-	}
+	cacheSet(ctx, c.cache, key, c.cacheTTL, data)
 
 	return data, nil
 }
