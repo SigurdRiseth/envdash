@@ -34,3 +34,12 @@ type RegistrationCreateResponse struct {
 	ID         string `json:"id"`
 	LastChange string `json:"lastChange"`
 }
+
+// Validate returns a *ValidationError if the request is missing required fields.
+// At least one of Country or ISOCode must be non-empty.
+func (r RegistrationRequest) Validate() error {
+	if r.Country == "" && r.ISOCode == "" {
+		return &ValidationError{Message: "at least one of 'country' or 'isoCode' is required"}
+	}
+	return nil
+}

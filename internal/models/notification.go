@@ -1,5 +1,10 @@
 package models
 
+import (
+	"fmt"
+	"net/url"
+)
+
 // Event types for webhook notifications.
 const (
 	EventRegister  = "REGISTER"
@@ -51,6 +56,33 @@ type NotificationRequest struct {
 // NotificationCreateResponse is returned by POST /notifications/.
 type NotificationCreateResponse struct {
 	ID string `json:"id"`
+}
+
+// Validate returns a *ValidationError if the request contains invalid or missing fields.
+// URL must be present and parseable, Event must be a recognised event type, and a
+// Threshold (with valid Field and Operator) is required when Event is THRESHOLD.
+func (n NotificationRequest) Validate() error {
+	if n.URL == "" {
+		return &ValidationError{Message: "'url' is required"}
+	}
+	if _, err := url.ParseRequestURI(n.URL); err != nil {
+		return &ValidationError{Message: "invalid url"}
+	}
+	if !ValidEvents[n.Event] {
+		return &ValidationError{Message: fmt.Sprintf("invalid event %q; must be one of REGISTER, CHANGE, DELETE, INVOKE, THRESHOLD", n.Event)}
+	}
+	if n.Event == EventThreshold {
+		if n.Threshold == nil {
+			return &ValidationError{Message: "'threshold' is required for THRESHOLD event"}
+		}
+		if !ValidThresholdFields[n.Threshold.Field] {
+			return &ValidationError{Message: fmt.Sprintf("invalid threshold field %q; must be pm25, pm10, temperature, or precipitation", n.Threshold.Field)}
+		}
+		if !ValidThresholdOperators[n.Threshold.Operator] {
+			return &ValidationError{Message: fmt.Sprintf("invalid threshold operator %q; must be >, <, >=, or <=", n.Threshold.Operator)}
+		}
+	}
+	return nil
 }
 
 // WebhookPayload is the JSON body POSTed to a registered webhook URL when an event fires.

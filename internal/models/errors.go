@@ -4,3 +4,12 @@ package models
 type ErrorResponse struct {
 	Error string `json:"error"`
 }
+
+// ValidationError is returned when a request contains invalid or missing fields.
+// Services and handlers can use errors.As to distinguish it from other errors
+// and map it to HTTP 400 Bad Request.
+type ValidationError struct {
+	Message string
+}
+
+func (e *ValidationError) Error() string { return e.Message }
