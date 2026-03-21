@@ -2,7 +2,6 @@ package clients
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -47,7 +46,8 @@ type CountriesClient struct {
 	cacheTTL time.Duration
 }
 
-// NewCountriesClient constructs a CountriesClient.
+// NewCountriesClient constructs a CountriesClient. If cacheTTL is 0 it
+// defaults to 24 hours.
 func NewCountriesClient(baseURL string, http HTTPDoer, cache firebase.CacheRepository, cacheTTL time.Duration) *CountriesClient {
 	if cacheTTL == 0 {
 		cacheTTL = countriesCacheTTL
@@ -56,16 +56,14 @@ func NewCountriesClient(baseURL string, http HTTPDoer, cache firebase.CacheRepos
 }
 
 // GetByISO fetches country data for the given ISO 3166-1 alpha-2 code.
-// Results are cached in Firestore for 24 hours.
+// The code is normalised to upper-case before the request is made.
+// Results are cached for 24 hours (or the TTL passed to NewCountriesClient).
 func (c *CountriesClient) GetByISO(ctx context.Context, iso string) (*CountryData, error) {
 	iso = strings.ToUpper(iso)
 	key := "countries:" + iso
 
-	if cached, ok, err := c.cache.Get(ctx, key); err == nil && ok {
-		var data CountryData
-		if json.Unmarshal(cached, &data) == nil {
-			return &data, nil
-		}
+	if data, ok := cacheGet[CountryData](ctx, c.cache, key); ok {
+		return &data, nil
 	}
 
 	url := fmt.Sprintf("%s/alpha/%s?fields=name,capital,latlng,population,area,currencies", c.baseURL, iso)
@@ -74,22 +72,9 @@ func (c *CountriesClient) GetByISO(ctx context.Context, iso string) (*CountryDat
 		return nil, fmt.Errorf("countries: build request: %w", err)
 	}
 
-	resp, err := c.http.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("countries: request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode == http.StatusNotFound {
-		return nil, fmt.Errorf("countries: country %q not found", iso)
-	}
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("countries: unexpected status %d", resp.StatusCode)
-	}
-
 	var raw countriesAPIResponse
-	if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
-		return nil, fmt.Errorf("countries: decode response: %w", err)
+	if err := fetchJSON(c.http, req, &raw, "countries"); err != nil {
+		return nil, err
 	}
 
 	data := &CountryData{
@@ -110,9 +95,7 @@ func (c *CountriesClient) GetByISO(ctx context.Context, iso string) (*CountryDat
 		break // use first (only) currency
 	}
 
-	if b, err := json.Marshal(data); err == nil {
-		_ = c.cache.Set(ctx, key, b, c.cacheTTL)
-	}
+	cacheSet(ctx, c.cache, key, c.cacheTTL, data)
 
 	return data, nil
 }

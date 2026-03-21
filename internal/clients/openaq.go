@@ -2,7 +2,6 @@ package clients
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -16,9 +15,9 @@ const openaqCacheTTL = 1 * time.Hour
 
 // OpenAQData holds aggregated air quality readings.
 type OpenAQData struct {
-	PM25  float64
-	PM10  float64
-	Level string
+	PM25  float64 // µg/m³ mean across nearby stations; -1 if no data
+	PM10  float64 // µg/m³ mean across nearby stations; -1 if no data
+	Level string  // EPA AQI category derived from PM2.5 (e.g. "Good", "Moderate")
 }
 
 // openaqLocationsResponse is the response from GET /v3/locations.
@@ -39,16 +38,6 @@ type openaqLocationsResponse struct {
 	} `json:"results"`
 }
 
-// openaqMeasurementsResponse is the response from GET /v3/measurements.
-type openaqMeasurementsResponse struct {
-	Results []struct {
-		Parameter struct {
-			Name string `json:"name"`
-		} `json:"parameter"`
-		Value float64 `json:"value"`
-	} `json:"results"`
-}
-
 // OpenAQClient fetches air quality data from the OpenAQ v3 API.
 type OpenAQClient struct {
 	baseURL  string
@@ -58,7 +47,8 @@ type OpenAQClient struct {
 	cacheTTL time.Duration
 }
 
-// NewOpenAQClient constructs an OpenAQClient.
+// NewOpenAQClient constructs an OpenAQClient. apiKey is sent as the
+// X-API-Key header on every request. If cacheTTL is 0 it defaults to 1 hour.
 func NewOpenAQClient(baseURL, apiKey string, http HTTPDoer, cache firebase.CacheRepository, cacheTTL time.Duration) *OpenAQClient {
 	if cacheTTL == 0 {
 		cacheTTL = openaqCacheTTL
@@ -71,11 +61,8 @@ func NewOpenAQClient(baseURL, apiKey string, http HTTPDoer, cache firebase.Cache
 func (c *OpenAQClient) GetAirQuality(ctx context.Context, lat, lon float64) (*OpenAQData, error) {
 	key := fmt.Sprintf("openaq:%.4f,%.4f", lat, lon)
 
-	if cached, ok, err := c.cache.Get(ctx, key); err == nil && ok {
-		var data OpenAQData
-		if json.Unmarshal(cached, &data) == nil {
-			return &data, nil
-		}
+	if data, ok := cacheGet[OpenAQData](ctx, c.cache, key); ok {
+		return &data, nil
 	}
 
 	// Query locations within 50 km and fetch latest measurements
@@ -91,19 +78,9 @@ func (c *OpenAQClient) GetAirQuality(ctx context.Context, lat, lon float64) (*Op
 	}
 	req.Header.Set("X-API-Key", c.apiKey)
 
-	resp, err := c.http.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("openaq: request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("openaq: unexpected status %d", resp.StatusCode)
-	}
-
 	var raw openaqLocationsResponse
-	if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
-		return nil, fmt.Errorf("openaq: decode locations response: %w", err)
+	if err := fetchJSON(c.http, req, &raw, "openaq"); err != nil {
+		return nil, err
 	}
 
 	if len(raw.Results) == 0 {
@@ -136,9 +113,7 @@ func (c *OpenAQClient) GetAirQuality(ctx context.Context, lat, lon float64) (*Op
 		data.PM10 = mean(pm10Vals)
 	}
 
-	if b, err := json.Marshal(data); err == nil {
-		_ = c.cache.Set(ctx, key, b, c.cacheTTL)
-	}
+	cacheSet(ctx, c.cache, key, c.cacheTTL, data)
 
 	return data, nil
 }

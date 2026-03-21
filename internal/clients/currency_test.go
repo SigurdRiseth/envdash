@@ -69,3 +69,29 @@ func TestCurrencyClient_GetRates(t *testing.T) {
 		})
 	}
 }
+
+func TestCurrencyClient_CacheHit(t *testing.T) {
+	calls := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"EUR":0.087701,"USD":0.095184}`))
+	}))
+	defer srv.Close()
+
+	cache := newInMemoryCache()
+	c := clients.NewCurrencyClient(srv.URL, http.DefaultClient, cache, 0)
+
+	// First call — hits server and populates cache
+	if _, err := c.GetRates(context.Background(), "NOK", []string{"EUR"}); err != nil {
+		t.Fatalf("first call: %v", err)
+	}
+	// Second call — should hit cache
+	if _, err := c.GetRates(context.Background(), "NOK", []string{"EUR"}); err != nil {
+		t.Fatalf("second call: %v", err)
+	}
+
+	if calls != 1 {
+		t.Errorf("expected 1 server call (cache hit on 2nd), got %d", calls)
+	}
+}

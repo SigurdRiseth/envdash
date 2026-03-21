@@ -2,7 +2,6 @@ package clients
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -21,7 +20,8 @@ type CurrencyClient struct {
 	cacheTTL time.Duration
 }
 
-// NewCurrencyClient constructs a CurrencyClient.
+// NewCurrencyClient constructs a CurrencyClient. If cacheTTL is 0 it
+// defaults to 1 hour.
 func NewCurrencyClient(baseURL string, http HTTPDoer, cache firebase.CacheRepository, cacheTTL time.Duration) *CurrencyClient {
 	if cacheTTL == 0 {
 		cacheTTL = currencyCacheTTL
@@ -29,17 +29,15 @@ func NewCurrencyClient(baseURL string, http HTTPDoer, cache firebase.CacheReposi
 	return &CurrencyClient{baseURL: baseURL, http: http, cache: cache, cacheTTL: cacheTTL}
 }
 
-// GetRates returns exchange rates from the given base currency to each target currency.
-// Results are cached for 1 hour.
+// GetRates returns exchange rates from base to each currency in targets.
+// base and all keys in targets are normalised to upper-case. The full rate
+// map for base is cached for 1 hour; only the requested subset is returned.
 func (c *CurrencyClient) GetRates(ctx context.Context, base string, targets []string) (map[string]float64, error) {
 	base = strings.ToUpper(base)
 	key := "currency:" + base
 
-	if cached, ok, err := c.cache.Get(ctx, key); err == nil && ok {
-		var allRates map[string]float64
-		if json.Unmarshal(cached, &allRates) == nil {
-			return filterRates(allRates, targets), nil
-		}
+	if allRates, ok := cacheGet[map[string]float64](ctx, c.cache, key); ok {
+		return filterRates(allRates, targets), nil
 	}
 
 	reqURL := fmt.Sprintf("%s/%s", c.baseURL, base)
@@ -48,31 +46,18 @@ func (c *CurrencyClient) GetRates(ctx context.Context, base string, targets []st
 		return nil, fmt.Errorf("currency: build request: %w", err)
 	}
 
-	resp, err := c.http.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("currency: request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode == http.StatusNotFound {
-		return nil, fmt.Errorf("currency: base currency %q not found", base)
-	}
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("currency: unexpected status %d", resp.StatusCode)
-	}
-
 	var allRates map[string]float64
-	if err := json.NewDecoder(resp.Body).Decode(&allRates); err != nil {
-		return nil, fmt.Errorf("currency: decode response: %w", err)
+	if err := fetchJSON(c.http, req, &allRates, "currency"); err != nil {
+		return nil, err
 	}
 
-	if b, err := json.Marshal(allRates); err == nil {
-		_ = c.cache.Set(ctx, key, b, c.cacheTTL)
-	}
+	cacheSet(ctx, c.cache, key, c.cacheTTL, allRates)
 
 	return filterRates(allRates, targets), nil
 }
 
+// filterRates returns a subset of all containing only the keys in targets.
+// Keys are upper-cased before lookup. Returns nil if targets is empty.
 func filterRates(all map[string]float64, targets []string) map[string]float64 {
 	if len(targets) == 0 {
 		return nil
