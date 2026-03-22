@@ -35,6 +35,7 @@ func NewNotificationRepo(fs *firestore.Client) NotificationRepository {
 	return &notificationRepo{fs: fs, collection: notificationsCollection}
 }
 
+// Create writes a new notification document. The document ID is taken from n.ID.
 func (r *notificationRepo) Create(ctx context.Context, n *models.Notification) error {
 	_, err := r.fs.Collection(r.collection).Doc(n.ID).Set(ctx, n)
 	if err != nil {
@@ -43,6 +44,7 @@ func (r *notificationRepo) Create(ctx context.Context, n *models.Notification) e
 	return nil
 }
 
+// Get fetches a single notification by ID. Returns ErrNotFound if no document exists.
 func (r *notificationRepo) Get(ctx context.Context, id string) (*models.Notification, error) {
 	doc, err := r.fs.Collection(r.collection).Doc(id).Get(ctx)
 	if err != nil {
@@ -59,6 +61,7 @@ func (r *notificationRepo) Get(ctx context.Context, id string) (*models.Notifica
 	return &n, nil
 }
 
+// List returns all notification documents in the collection.
 func (r *notificationRepo) List(ctx context.Context) ([]models.Notification, error) {
 	docs, err := r.fs.Collection(r.collection).Documents(ctx).GetAll()
 	if err != nil {
@@ -76,6 +79,7 @@ func (r *notificationRepo) List(ctx context.Context) ([]models.Notification, err
 	return ns, nil
 }
 
+// Delete removes a notification by ID. Returns ErrNotFound if no document exists.
 func (r *notificationRepo) Delete(ctx context.Context, id string) error {
 	_, err := r.fs.Collection(r.collection).Doc(id).Get(ctx)
 	if err != nil {
@@ -113,6 +117,7 @@ func (r *notificationRepo) ListMatching(ctx context.Context, isoCode, event stri
 	return matched, nil
 }
 
+// Count returns the total number of notification documents in the collection.
 func (r *notificationRepo) Count(ctx context.Context) (int, error) {
 	docs, err := r.fs.Collection(r.collection).Documents(ctx).GetAll()
 	if err != nil {
