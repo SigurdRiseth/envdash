@@ -8,6 +8,7 @@ on:
 
 jobs:
   sync:
+    if: false  # disabled until GitLab repo is set up
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
