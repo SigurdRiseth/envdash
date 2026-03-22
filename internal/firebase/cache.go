@@ -3,6 +3,7 @@ package firebase
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"cloud.google.com/go/firestore"
@@ -99,13 +100,5 @@ func (r *cacheRepo) Purge(ctx context.Context) (int, error) {
 // sanitiseKey replaces characters that are invalid in Firestore document IDs.
 // Specifically, '/' is not allowed in document IDs (it is treated as a path separator).
 func sanitiseKey(key string) string {
-	result := make([]byte, len(key))
-	for i := range key {
-		if key[i] == '/' {
-			result[i] = '_'
-		} else {
-			result[i] = key[i]
-		}
-	}
-	return string(result)
+	return strings.ReplaceAll(key, "/", "_")
 }
