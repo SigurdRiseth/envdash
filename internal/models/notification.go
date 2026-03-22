@@ -1,5 +1,10 @@
 package models
 
+import (
+	"fmt"
+	"net/url"
+)
+
 // Event types for webhook notifications.
 const (
 	EventRegister  = "REGISTER"
@@ -18,11 +23,11 @@ var ValidEvents = map[string]bool{
 	EventThreshold: true,
 }
 
-// Valid threshold fields and operators.
-var (
-	ValidThresholdFields    = map[string]bool{"pm25": true, "pm10": true, "temperature": true, "precipitation": true}
-	ValidThresholdOperators = map[string]bool{">": true, "<": true, ">=": true, "<=": true}
-)
+// ValidThresholdFields is the set of measurement fields that can be used in a Threshold.
+var ValidThresholdFields = map[string]bool{"pm25": true, "pm10": true, "temperature": true, "precipitation": true}
+
+// ValidThresholdOperators is the set of comparison operators accepted in a Threshold.
+var ValidThresholdOperators = map[string]bool{">": true, "<": true, ">=": true, "<=": true}
 
 // Notification represents a persisted webhook registration.
 type Notification struct {
@@ -53,6 +58,33 @@ type NotificationCreateResponse struct {
 	ID string `json:"id"`
 }
 
+// Validate returns a *ValidationError if the request contains invalid or missing fields.
+// URL must be present and parseable, Event must be a recognised event type, and a
+// Threshold (with valid Field and Operator) is required when Event is THRESHOLD.
+func (n NotificationRequest) Validate() error {
+	if n.URL == "" {
+		return &ValidationError{Message: "'url' is required"}
+	}
+	if _, err := url.ParseRequestURI(n.URL); err != nil {
+		return &ValidationError{Message: "invalid url"}
+	}
+	if !ValidEvents[n.Event] {
+		return &ValidationError{Message: fmt.Sprintf("invalid event %q; must be one of REGISTER, CHANGE, DELETE, INVOKE, THRESHOLD", n.Event)}
+	}
+	if n.Event == EventThreshold {
+		if n.Threshold == nil {
+			return &ValidationError{Message: "'threshold' is required for THRESHOLD event"}
+		}
+		if !ValidThresholdFields[n.Threshold.Field] {
+			return &ValidationError{Message: fmt.Sprintf("invalid threshold field %q; must be pm25, pm10, temperature, or precipitation", n.Threshold.Field)}
+		}
+		if !ValidThresholdOperators[n.Threshold.Operator] {
+			return &ValidationError{Message: fmt.Sprintf("invalid threshold operator %q; must be >, <, >=, or <=", n.Threshold.Operator)}
+		}
+	}
+	return nil
+}
+
 // WebhookPayload is the JSON body POSTed to a registered webhook URL when an event fires.
 type WebhookPayload struct {
 	ID      string            `json:"id"`
@@ -62,7 +94,9 @@ type WebhookPayload struct {
 	Details *ThresholdDetails `json:"details,omitempty"`
 }
 
-// ThresholdDetails is included in webhook payloads for THRESHOLD events.
+// ThresholdDetails is included in THRESHOLD webhook payloads to describe what
+// triggered the notification: the monitored field, the configured threshold
+// condition, and the live measured value that crossed it.
 type ThresholdDetails struct {
 	Field         string  `json:"field"`
 	Operator      string  `json:"operator"`

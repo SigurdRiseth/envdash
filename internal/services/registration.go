@@ -36,7 +36,7 @@ func NewRegistrationService(
 }
 
 func (s *registrationService) Create(ctx context.Context, req models.RegistrationRequest) (*models.Registration, error) {
-	if err := validateRegistrationRequest(req); err != nil {
+	if err := req.Validate(); err != nil {
 		return nil, err
 	}
 
@@ -65,7 +65,7 @@ func (s *registrationService) List(ctx context.Context) ([]models.Registration, 
 }
 
 func (s *registrationService) Update(ctx context.Context, id string, req models.RegistrationRequest) (*models.Registration, error) {
-	if err := validateRegistrationRequest(req); err != nil {
+	if err := req.Validate(); err != nil {
 		return nil, err
 	}
 
@@ -146,13 +146,6 @@ func (s *registrationService) fireLifecycle(ctx context.Context, isoCode, event 
 	}
 }
 
-func validateRegistrationRequest(req models.RegistrationRequest) error {
-	if req.Country == "" && req.ISOCode == "" {
-		return &ValidationError{Message: "at least one of 'country' or 'isoCode' is required"}
-	}
-	return nil
-}
-
 func applyFeaturePatch(f *models.Features, m map[string]interface{}) {
 	if v, ok := m["temperature"].(bool); ok {
 		f.Temperature = v
@@ -186,9 +179,3 @@ func applyFeaturePatch(f *models.Features, m map[string]interface{}) {
 	}
 }
 
-// ValidationError represents a client-side validation failure.
-type ValidationError struct {
-	Message string
-}
-
-func (e *ValidationError) Error() string { return e.Message }

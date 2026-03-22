@@ -97,7 +97,7 @@ func TestRegistrationService_Create_MissingCountryAndISO(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected validation error, got nil")
 	}
-	var ve *services.ValidationError
+	var ve *models.ValidationError
 	if !errors.As(err, &ve) {
 		t.Errorf("expected *ValidationError, got %T: %v", err, err)
 	}
@@ -151,7 +151,7 @@ func TestRegistrationService_Update_Validation(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected validation error, got nil")
 	}
-	var ve *services.ValidationError
+	var ve *models.ValidationError
 	if !errors.As(err, &ve) {
 		t.Errorf("expected *ValidationError, got %T", err)
 	}
