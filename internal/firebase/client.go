@@ -22,8 +22,8 @@ func NewFirestoreClient(ctx context.Context, cfg *config.Config) (*firestore.Cli
 	switch {
 	case cfg.FirebaseCredsJSON != "":
 		// Inline JSON credentials (useful in Docker/CI without mounted files)
-		var creds map[string]interface{}
-		if err := json.Unmarshal([]byte(cfg.FirebaseCredsJSON), &creds); err != nil {
+		var raw json.RawMessage
+		if err := json.Unmarshal([]byte(cfg.FirebaseCredsJSON), &raw); err != nil {
 			return nil, fmt.Errorf("invalid FIREBASE_CREDENTIALS_JSON: %w", err)
 		}
 		opts = append(opts, option.WithCredentialsJSON([]byte(cfg.FirebaseCredsJSON)))
