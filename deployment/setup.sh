@@ -4,7 +4,7 @@
 set -euo pipefail
 
 GO_VERSION="1.26.1"
-REPO_URL="https://github.com/YOUR_USERNAME/envdash.git"  # replace with your repo URL
+REPO_URL="https://github.com/SigurdRiseth/Air-Quality-Environment-Dashboard-Service.git"
 
 # ── 1. Install Go ────────────────────────────────────────────────────────────
 echo "--- installing Go ${GO_VERSION} ---"
