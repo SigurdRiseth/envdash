@@ -41,6 +41,9 @@ func (d *Dispatcher) Dispatch(payload models.WebhookPayload, url string) {
 	}()
 }
 
+// send marshals payload to JSON and POSTs it to url with a 10-second timeout.
+// Returns an error if marshalling, request construction, transport, or a non-2xx
+// response status is encountered.
 func (d *Dispatcher) send(payload models.WebhookPayload, url string) error {
 	body, err := json.Marshal(payload)
 	if err != nil {
@@ -74,6 +77,7 @@ type DeliveryError struct {
 	URL        string
 }
 
+// Error implements the error interface.
 func (e *DeliveryError) Error() string {
 	return "webhook: " + e.URL + " responded with status " + http.StatusText(e.StatusCode)
 }
