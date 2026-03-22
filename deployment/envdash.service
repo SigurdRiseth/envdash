@@ -1,0 +1,18 @@
+[Unit]
+Description=envdash REST service
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/envdash
+EnvironmentFile=/etc/envdash/env
+ExecStart=/home/ubuntu/envdash/bin/envdash
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=envdash
+
+[Install]
+WantedBy=multi-user.target
