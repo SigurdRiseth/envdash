@@ -5,7 +5,7 @@ type DashboardResponse struct {
 	Country       string            `json:"country"`
 	ISOCode       string            `json:"isoCode"`
 	Features      DashboardFeatures `json:"features"`
-	LastRetrieval string            `json:"lastRetrieval"` // UTC timestamp in "20060102 15:04" format
+	LastRetrieval string            `json:"lastRetrieval"` // Oslo (CET/CEST) timestamp in "20060102 15:04" format
 }
 
 // DashboardFeatures holds the populated feature values. Fields are pointers

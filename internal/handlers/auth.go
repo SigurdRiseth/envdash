@@ -9,6 +9,15 @@ import (
 	"envdash/internal/services"
 )
 
+// osloLocation is used to stamp createdAt consistently with the rest of the app.
+var osloLocation = func() *time.Location {
+	loc, err := time.LoadLocation("Europe/Oslo")
+	if err != nil {
+		return time.UTC
+	}
+	return loc
+}()
+
 type authHandler struct {
 	svc services.AuthService
 }
@@ -42,7 +51,7 @@ func (h *authHandler) handleCollection(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, http.StatusCreated, models.AuthCreateResponse{
 		Key:       key,
-		CreatedAt: time.Now().Format("20060102 15:04"),
+		CreatedAt: time.Now().In(osloLocation).Format("20060102 15:04"),
 	})
 }
 
