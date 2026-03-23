@@ -66,7 +66,7 @@ Base path: `/envdash/v1`
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `POST` | `/auth/` | Register a new API key — returns `{"apiKey": "sk-envdash-..."}` |
+| `POST` | `/auth/` | Register a new API key — returns `{"key": "sk-envdash-...", "createdAt": "..."}` |
 | `DELETE` | `/auth/{key}` | Revoke an API key |
 
 All endpoints except `/status/` and `/auth/` require an `X-API-Key` header containing a valid key.
