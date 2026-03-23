@@ -42,7 +42,7 @@ func (h *authHandler) handleCollection(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, http.StatusCreated, models.AuthCreateResponse{
 		Key:       key,
-		CreatedAt: time.Now().UTC().Format("20060102 15:04"),
+		CreatedAt: time.Now().Format("20060102 15:04"),
 	})
 }
 
