@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	"envdash/internal/clients"
 )
@@ -104,24 +103,3 @@ func TestCountriesClient_CacheHit(t *testing.T) {
 	}
 }
 
-// ---- stub cache helpers ----
-
-type noopCache struct{}
-
-func (n *noopCache) Get(_ context.Context, _ string) ([]byte, bool, error) { return nil, false, nil }
-func (n *noopCache) Set(_ context.Context, _ string, _ []byte, _ time.Duration) error { return nil }
-func (n *noopCache) Purge(_ context.Context) (int, error)                             { return 0, nil }
-
-type inMemoryCache struct{ data map[string][]byte }
-
-func newInMemoryCache() *inMemoryCache { return &inMemoryCache{data: make(map[string][]byte)} }
-
-func (c *inMemoryCache) Get(_ context.Context, key string) ([]byte, bool, error) {
-	v, ok := c.data[key]
-	return v, ok, nil
-}
-func (c *inMemoryCache) Set(_ context.Context, key string, data []byte, _ time.Duration) error {
-	c.data[key] = data
-	return nil
-}
-func (c *inMemoryCache) Purge(_ context.Context) (int, error) { return 0, nil }

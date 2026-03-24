@@ -2,7 +2,6 @@ package clients
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -34,7 +33,8 @@ type MeteoClient struct {
 	cacheTTL time.Duration
 }
 
-// NewMeteoClient constructs a MeteoClient.
+// NewMeteoClient constructs a MeteoClient. If cacheTTL is 0 it defaults to
+// 3 hours.
 func NewMeteoClient(baseURL string, http HTTPDoer, cache firebase.CacheRepository, cacheTTL time.Duration) *MeteoClient {
 	if cacheTTL == 0 {
 		cacheTTL = meteoCacheTTL
@@ -47,11 +47,8 @@ func NewMeteoClient(baseURL string, http HTTPDoer, cache firebase.CacheRepositor
 func (c *MeteoClient) GetForecast(ctx context.Context, lat, lon float64) (*MeteoData, error) {
 	key := fmt.Sprintf("meteo:%.4f,%.4f", lat, lon)
 
-	if cached, ok, err := c.cache.Get(ctx, key); err == nil && ok {
-		var data MeteoData
-		if json.Unmarshal(cached, &data) == nil {
-			return &data, nil
-		}
+	if data, ok := cacheGet[MeteoData](ctx, c.cache, key); ok {
+		return &data, nil
 	}
 
 	params := url.Values{}
@@ -66,19 +63,9 @@ func (c *MeteoClient) GetForecast(ctx context.Context, lat, lon float64) (*Meteo
 		return nil, fmt.Errorf("meteo: build request: %w", err)
 	}
 
-	resp, err := c.http.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("meteo: request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("meteo: unexpected status %d", resp.StatusCode)
-	}
-
 	var raw meteoAPIResponse
-	if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
-		return nil, fmt.Errorf("meteo: decode response: %w", err)
+	if err := fetchJSON(c.http, req, &raw, "meteo"); err != nil {
+		return nil, err
 	}
 
 	data := &MeteoData{
@@ -86,20 +73,8 @@ func (c *MeteoClient) GetForecast(ctx context.Context, lat, lon float64) (*Meteo
 		Precipitation: mean(raw.Hourly.Precipitation),
 	}
 
-	if b, err := json.Marshal(data); err == nil {
-		_ = c.cache.Set(ctx, key, b, c.cacheTTL)
-	}
+	cacheSet(ctx, c.cache, key, c.cacheTTL, data)
 
 	return data, nil
 }
 
-func mean(vals []float64) float64 {
-	if len(vals) == 0 {
-		return 0
-	}
-	var sum float64
-	for _, v := range vals {
-		sum += v
-	}
-	return sum / float64(len(vals))
-}

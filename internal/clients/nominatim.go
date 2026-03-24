@@ -2,7 +2,6 @@ package clients
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -39,7 +38,9 @@ type NominatimClient struct {
 	cacheTTL time.Duration
 }
 
-// NewNominatimClient constructs a NominatimClient with a 1 req/sec rate limiter.
+// NewNominatimClient constructs a NominatimClient with a 1 req/sec rate
+// limiter backed by a buffered channel refilled by a background ticker.
+// If cacheTTL is 0 it defaults to 24 hours.
 func NewNominatimClient(baseURL string, http HTTPDoer, cache firebase.CacheRepository, cacheTTL time.Duration) *NominatimClient {
 	if cacheTTL == 0 {
 		cacheTTL = nominatimCacheTTL
@@ -66,11 +67,8 @@ func NewNominatimClient(baseURL string, http HTTPDoer, cache firebase.CacheRepos
 func (c *NominatimClient) GetCoordinates(ctx context.Context, iso string) (*NominatimData, error) {
 	key := "nominatim:" + iso
 
-	if cached, ok, err := c.cache.Get(ctx, key); err == nil && ok {
-		var data NominatimData
-		if json.Unmarshal(cached, &data) == nil {
-			return &data, nil
-		}
+	if data, ok := cacheGet[NominatimData](ctx, c.cache, key); ok {
+		return &data, nil
 	}
 
 	// Acquire rate-limit token
@@ -92,19 +90,9 @@ func (c *NominatimClient) GetCoordinates(ctx context.Context, iso string) (*Nomi
 	}
 	req.Header.Set("User-Agent", nominatimUserAgent)
 
-	resp, err := c.http.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("nominatim: request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("nominatim: unexpected status %d", resp.StatusCode)
-	}
-
 	var results []nominatimResult
-	if err := json.NewDecoder(resp.Body).Decode(&results); err != nil {
-		return nil, fmt.Errorf("nominatim: decode response: %w", err)
+	if err := fetchJSON(c.http, req, &results, "nominatim"); err != nil {
+		return nil, err
 	}
 
 	if len(results) == 0 {
@@ -122,9 +110,7 @@ func (c *NominatimClient) GetCoordinates(ctx context.Context, iso string) (*Nomi
 
 	data := &NominatimData{Latitude: lat, Longitude: lon}
 
-	if b, err := json.Marshal(data); err == nil {
-		_ = c.cache.Set(ctx, key, b, c.cacheTTL)
-	}
+	cacheSet(ctx, c.cache, key, c.cacheTTL, data)
 
 	return data, nil
 }

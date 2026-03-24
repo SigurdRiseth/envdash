@@ -5,7 +5,7 @@ type DashboardResponse struct {
 	Country       string            `json:"country"`
 	ISOCode       string            `json:"isoCode"`
 	Features      DashboardFeatures `json:"features"`
-	LastRetrieval string            `json:"lastRetrieval"`
+	LastRetrieval string            `json:"lastRetrieval"` // UTC timestamp in "20060102 15:04" format
 }
 
 // DashboardFeatures holds the populated feature values. Fields are pointers
@@ -24,9 +24,9 @@ type DashboardFeatures struct {
 
 // AirQualityData holds aggregated air quality readings and an AQI level label.
 type AirQualityData struct {
-	PM25  float64 `json:"pm25"`
-	PM10  float64 `json:"pm10"`
-	Level string  `json:"level"`
+	PM25  float64 `json:"pm25"`  // µg/m³ mean across nearby stations; -1 when no data is available
+	PM10  float64 `json:"pm10"`  // µg/m³ mean across nearby stations; -1 when no data is available
+	Level string  `json:"level"` // EPA AQI category derived from PM2.5 (e.g. "Good", "Moderate")
 }
 
 // CoordinatesData holds country centroid coordinates.

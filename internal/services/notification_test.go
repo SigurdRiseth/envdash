@@ -216,15 +216,15 @@ func TestNotificationService_Patch_NotFound(t *testing.T) {
 
 // ---- helper ----
 
-// assertValidationError fails the test if err is not a *services.ValidationError
+// assertValidationError fails the test if err is not a *models.ValidationError
 // or if the error message does not mention the given field keyword.
 func assertValidationError(t *testing.T, err error, keyword string) {
 	t.Helper()
 	if err == nil {
 		t.Fatalf("expected validation error containing %q, got nil", keyword)
 	}
-	var ve *services.ValidationError
+	var ve *models.ValidationError
 	if !errors.As(err, &ve) {
-		t.Errorf("expected *services.ValidationError, got %T: %v", err, err)
+		t.Errorf("expected *models.ValidationError, got %T: %v", err, err)
 	}
 }
