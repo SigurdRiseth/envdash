@@ -54,6 +54,8 @@ func Load() (*Config, error) {
 	return cfg, nil
 }
 
+// getEnv returns the value of the environment variable named key,
+// or fallback if the variable is unset or empty.
 func getEnv(key, fallback string) string {
 	if v := os.Getenv(key); v != "" {
 		return v
@@ -61,6 +63,8 @@ func getEnv(key, fallback string) string {
 	return fallback
 }
 
+// getEnvInt returns the integer value of the environment variable named key,
+// or fallback if the variable is unset, empty, or not a valid integer.
 func getEnvInt(key string, fallback int) int {
 	if v := os.Getenv(key); v != "" {
 		if n, err := strconv.Atoi(v); err == nil {

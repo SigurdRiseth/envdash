@@ -6,8 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"cloud.google.com/go/firestore"
-
 	"envdash/internal/clients"
 	"envdash/internal/config"
 	"envdash/internal/firebase"
@@ -33,23 +31,21 @@ type StatusService interface {
 
 type statusService struct {
 	cfg       *config.Config
-	fs        *firestore.Client
 	notifs    firebase.NotificationRepository
 	http      clients.HTTPDoer
 	startTime time.Time
 }
 
-// NewStatusService constructs a StatusService.
+// NewStatusService constructs a StatusService. The notification repository is
+// used both to count registered webhooks and to verify Firestore reachability.
 func NewStatusService(
 	cfg *config.Config,
-	fs *firestore.Client,
 	notifs firebase.NotificationRepository,
 	http clients.HTTPDoer,
 	startTime time.Time,
 ) StatusService {
 	return &statusService{
 		cfg:       cfg,
-		fs:        fs,
 		notifs:    notifs,
 		http:      http,
 		startTime: startTime,
@@ -86,13 +82,12 @@ func (s *statusService) Get(ctx context.Context) StatusResponse {
 		results[r.name] = r.code
 	}
 
-	// Firestore ping
+	// Count also serves as the Firestore reachability probe — if it errors, the DB is down.
+	webhookCount, err := s.notifs.Count(ctx)
 	dbStatus := 200
-	if _, err := s.fs.Collection("notifications").Limit(1).Documents(ctx).GetAll(); err != nil {
+	if err != nil {
 		dbStatus = 503
 	}
-
-	webhookCount, _ := s.notifs.Count(ctx)
 
 	return StatusResponse{
 		CountriesAPI:   results["countries"],

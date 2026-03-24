@@ -36,6 +36,7 @@ func NewRegistrationRepo(fs *firestore.Client) RegistrationRepository {
 	return &registrationRepo{fs: fs, collection: registrationsCollection}
 }
 
+// Create writes a new registration document. The document ID is taken from reg.ID.
 func (r *registrationRepo) Create(ctx context.Context, reg *models.Registration) error {
 	_, err := r.fs.Collection(r.collection).Doc(reg.ID).Set(ctx, reg)
 	if err != nil {
@@ -44,6 +45,7 @@ func (r *registrationRepo) Create(ctx context.Context, reg *models.Registration)
 	return nil
 }
 
+// Get fetches a single registration by ID. Returns ErrNotFound if no document exists.
 func (r *registrationRepo) Get(ctx context.Context, id string) (*models.Registration, error) {
 	doc, err := r.fs.Collection(r.collection).Doc(id).Get(ctx)
 	if err != nil {
@@ -60,6 +62,7 @@ func (r *registrationRepo) Get(ctx context.Context, id string) (*models.Registra
 	return &reg, nil
 }
 
+// List returns all registration documents in the collection.
 func (r *registrationRepo) List(ctx context.Context) ([]models.Registration, error) {
 	docs, err := r.fs.Collection(r.collection).Documents(ctx).GetAll()
 	if err != nil {
@@ -77,6 +80,7 @@ func (r *registrationRepo) List(ctx context.Context) ([]models.Registration, err
 	return regs, nil
 }
 
+// Update overwrites an existing registration document with the new value.
 func (r *registrationRepo) Update(ctx context.Context, reg *models.Registration) error {
 	_, err := r.fs.Collection(r.collection).Doc(reg.ID).Set(ctx, reg)
 	if err != nil {
@@ -85,6 +89,7 @@ func (r *registrationRepo) Update(ctx context.Context, reg *models.Registration)
 	return nil
 }
 
+// Delete removes a registration by ID. Returns ErrNotFound if no document exists.
 func (r *registrationRepo) Delete(ctx context.Context, id string) error {
 	// Check existence first so callers can distinguish 404 from other errors.
 	_, err := r.fs.Collection(r.collection).Doc(id).Get(ctx)

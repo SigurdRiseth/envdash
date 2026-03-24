@@ -59,7 +59,7 @@ func main() {
 	regSvc    := services.NewRegistrationService(regRepo, notifRepo, dispatcher)
 	dashSvc   := services.NewDashboardService(regRepo, notifRepo, countriesClient, meteoClient, openaqClient, currencyClient, dispatcher)
 	notifSvc  := services.NewNotificationService(notifRepo)
-	statusSvc := services.NewStatusService(cfg, fs, notifRepo, httpClient, startTime)
+	statusSvc := services.NewStatusService(cfg, notifRepo, httpClient, startTime)
 	authSvc   := services.NewAuthService(apiKeyRepo)
 
 	// Background cache purge goroutine (advanced task)

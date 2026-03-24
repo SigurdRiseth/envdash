@@ -29,6 +29,7 @@ func NewAPIKeyRepo(fs *firestore.Client) APIKeyRepository {
 	return &apiKeyRepo{fs: fs, collection: apiKeysCollection}
 }
 
+// Create stores a new API key document with a createdAt timestamp.
 func (r *apiKeyRepo) Create(ctx context.Context, key string) error {
 	_, err := r.fs.Collection(r.collection).Doc(key).Set(ctx, map[string]interface{}{
 		"key":       key,
@@ -40,6 +41,7 @@ func (r *apiKeyRepo) Create(ctx context.Context, key string) error {
 	return nil
 }
 
+// Exists reports whether an API key document is present in the collection.
 func (r *apiKeyRepo) Exists(ctx context.Context, key string) (bool, error) {
 	doc, err := r.fs.Collection(r.collection).Doc(key).Get(ctx)
 	if err != nil {
@@ -51,12 +53,20 @@ func (r *apiKeyRepo) Exists(ctx context.Context, key string) (bool, error) {
 	return doc.Exists(), nil
 }
 
+// Delete removes an API key document. Returns ErrNotFound if no document exists.
 func (r *apiKeyRepo) Delete(ctx context.Context, key string) error {
-	_, err := r.fs.Collection(r.collection).Doc(key).Delete(ctx)
+	// Check existence first — Firestore's Delete is a no-op on missing documents
+	// and never returns codes.NotFound, so we must probe explicitly.
+	_, err := r.fs.Collection(r.collection).Doc(key).Get(ctx)
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
 			return ErrNotFound
 		}
+		return fmt.Errorf("delete api key: %w", err)
+	}
+
+	_, err = r.fs.Collection(r.collection).Doc(key).Delete(ctx)
+	if err != nil {
 		return fmt.Errorf("delete api key: %w", err)
 	}
 	return nil

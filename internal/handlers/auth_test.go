@@ -38,9 +38,11 @@ func TestAuth_POST_CreatesKey(t *testing.T) {
 	if err := json.NewDecoder(rr.Body).Decode(&body); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	key, ok := body["apiKey"]
-	if !ok || key == "" {
-		t.Error("expected non-empty apiKey in response")
+	if key := body["key"]; key == "" {
+		t.Error("expected non-empty key in response")
+	}
+	if body["createdAt"] == "" {
+		t.Error("expected non-empty createdAt in response")
 	}
 }
 
