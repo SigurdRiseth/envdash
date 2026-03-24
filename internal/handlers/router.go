@@ -9,9 +9,18 @@ import (
 
 const apiPrefix = "/envdash/v1"
 
-// NewRouter registers all routes and returns the root http.Handler.
-// If authSvc is non-nil, an X-API-Key middleware is applied to all routes
-// except /status/ and /auth/.
+// apiKeyExemptPrefixes lists route prefixes that bypass X-API-Key authentication.
+// Update this list when adding or removing unauthenticated routes.
+var apiKeyExemptPrefixes = []string{
+	apiPrefix + "/status/",
+	apiPrefix + "/auth/",
+}
+
+// NewRouter wires together all service dependencies, registers every API route
+// under the /envdash/v1 prefix, and returns the root http.Handler.
+// All requests pass through loggingMiddleware. If authSvc is non-nil, an
+// apiKeyMiddleware is also applied, protecting all routes except /status/ and /auth/.
+// Pass authSvc as nil to disable API key enforcement (e.g. during local development).
 func NewRouter(
 	regSvc services.RegistrationService,
 	dashSvc services.DashboardService,
@@ -72,8 +81,9 @@ func NewRouter(
 	return loggingMiddleware(h)
 }
 
-// isCollectionPath returns true when the URL refers to the collection root
-// (i.e. no ID segment after the prefix).
+// isCollectionPath reports whether path refers to a collection root rather than
+// a specific item. It returns true when there is no ID segment after prefix
+// (e.g. "/envdash/v1/registrations/" is a collection; "/envdash/v1/registrations/abc" is not).
 func isCollectionPath(path, prefix string) bool {
 	suffix := strings.TrimPrefix(path, prefix)
 	return suffix == "" || suffix == "/"
