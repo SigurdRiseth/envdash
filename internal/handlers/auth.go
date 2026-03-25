@@ -1,10 +1,21 @@
 package handlers
 
 import (
+	"encoding/json"
 	"net/http"
+	"time"
 
+	"envdash/internal/models"
 	"envdash/internal/services"
 )
+
+var osloLocation = func() *time.Location {
+	loc, err := time.LoadLocation("Europe/Oslo")
+	if err != nil {
+		return time.UTC
+	}
+	return loc
+}()
 
 type authHandler struct {
 	svc services.AuthService
@@ -16,7 +27,7 @@ func newAuthHandler(svc services.AuthService) *authHandler {
 }
 
 // handleCollection handles POST /auth/ — generate and persist a new API key.
-// Responds 201 Created with {"apiKey": "<key>"} on success.
+// Responds 201 Created with {"key": "<key>", "createdAt": "<timestamp>"} on success.
 // Only POST is accepted; all other methods return 405 Method Not Allowed.
 func (h *authHandler) handleCollection(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
@@ -24,13 +35,19 @@ func (h *authHandler) handleCollection(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var req models.AuthRequest
+	_ = json.NewDecoder(r.Body).Decode(&req)
+
 	key, err := h.svc.Register(r.Context())
 	if err != nil {
 		handleServiceError(w, err)
 		return
 	}
 
-	writeJSON(w, http.StatusCreated, map[string]string{"apiKey": key})
+	writeJSON(w, http.StatusCreated, models.AuthCreateResponse{
+		Key:       key,
+		CreatedAt: time.Now().In(osloLocation).Format("20060102 15:04"),
+	})
 }
 
 // handleItem handles DELETE /auth/{key} — permanently revoke an existing API key.

@@ -66,7 +66,7 @@ Base path: `/envdash/v1`
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `POST` | `/auth/` | Register a new API key — returns `{"apiKey": "sk-envdash-..."}` |
+| `POST` | `/auth/` | Register a new API key — returns `{"key": "sk-envdash-...", "createdAt": "..."}` |
 | `DELETE` | `/auth/{key}` | Revoke an API key |
 
 All endpoints except `/status/` and `/auth/` require an `X-API-Key` header containing a valid key.
@@ -186,8 +186,8 @@ Supported fields: `pm25`, `pm10`, `temperature`, `precipitation`
 cp .env.example .env
 # Edit .env with your Firebase project ID, credentials, and OpenAQ key
 
-# 2. Run the server
-go run ./cmd/server
+# 2. Run the server (source .env so variables are exported to the process)
+set -a && source .env && set +a && go run ./cmd/server
 
 # Service is available at http://localhost:8080
 ```
@@ -243,10 +243,10 @@ go test ./... -v
 
 | Package | Coverage |
 |---------|----------|
-| `internal/models` | ~100% |
-| `internal/handlers` | ~88% |
-| `internal/clients` | ~85% |
-| `internal/services` | ~31% |
+| `internal/models` | ~96% |
+| `internal/handlers` | ~89% |
+| `internal/clients` | ~93% |
+| `internal/services` | ~66% |
 
 Handler tests use mock service implementations — no live APIs or Firebase required.
 Client tests use `httptest.NewServer` to serve stub JSON responses.
@@ -289,7 +289,7 @@ Air quality level is classified based on PM2.5 concentration using EPA AQI break
 ## Known Edge Cases
 
 - **Threshold on disabled field:** If a THRESHOLD webhook is registered for a field (e.g. `pm25`) that is not enabled in the dashboard configuration (`airQuality: false`), the webhook is stored successfully but will never fire. This matches the assignment specification.
-- **No OpenAQ stations nearby:** If no monitoring stations are found within 50 km of the country centroid, air quality is reported as `{"pm25": -1, "pm10": -1, "level": "Unknown"}`.
+- **No OpenAQ stations nearby:** If no monitoring stations are found within 25 km of the country centroid, air quality is reported as `{"pm25": -1, "pm10": -1, "level": "Unknown"}`. Note: the assignment specification states 50 km, but the OpenAQ v3 API enforces a maximum radius of 25,000 m, so 25 km is used instead.
 - **`lastRetrieval` is never cached:** The timestamp in a dashboard response always reflects the actual request time, not when the underlying data was fetched from external APIs.
 - **Multiple capital cities:** When a country has more than one capital (e.g. South Africa), the first value returned by the Countries API is used.
 - **Partial upstream failure:** If one external API is unavailable during a dashboard retrieval, that field is omitted (`null`) from the response while other fields remain populated.
@@ -312,10 +312,10 @@ Air quality level is classified based on PM2.5 concentration using EPA AQI break
 
 ## Group Contributions
 
-| Member | Primary responsibilities |
-|--------|--------------------------|
-| Sigurd Riseth | Architecture, all endpoints, tests, Firebase integration |
-| *(TBD)* | *(to be filled in)* |
+| Member | Primary responsibilities                                                                                               |
+|--------|------------------------------------------------------------------------------------------------------------------------|
+| Sigurd Riseth | Architecture, all endpoints, service layer, Firebase repositories, webhook dispatcher, Docker setup, integration tests |
+| Theodor Utvik | Code quality and refactoring across all packages; documentation; testing; code review and PR merges                    |
 
 ---
 

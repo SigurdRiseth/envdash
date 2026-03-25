@@ -68,7 +68,7 @@ func (c *OpenAQClient) GetAirQuality(ctx context.Context, lat, lon float64) (*Op
 	// Query locations within 50 km and fetch latest measurements
 	params := url.Values{}
 	params.Set("coordinates", fmt.Sprintf("%f,%f", lat, lon))
-	params.Set("radius", "50000")
+	params.Set("radius", "25000")
 	params.Set("limit", "100")
 
 	reqURL := fmt.Sprintf("%s/locations?%s", c.baseURL, params.Encode())

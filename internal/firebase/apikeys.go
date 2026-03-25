@@ -52,11 +52,17 @@ func (r *apiKeyRepo) Exists(ctx context.Context, key string) (bool, error) {
 }
 
 func (r *apiKeyRepo) Delete(ctx context.Context, key string) error {
-	_, err := r.fs.Collection(r.collection).Doc(key).Delete(ctx)
+	doc, err := r.fs.Collection(r.collection).Doc(key).Get(ctx)
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
 			return ErrNotFound
 		}
+		return fmt.Errorf("delete api key: %w", err)
+	}
+	if !doc.Exists() {
+		return ErrNotFound
+	}
+	if _, err := r.fs.Collection(r.collection).Doc(key).Delete(ctx); err != nil {
 		return fmt.Errorf("delete api key: %w", err)
 	}
 	return nil
