@@ -292,7 +292,7 @@ Air quality level is classified based on PM2.5 concentration using EPA AQI break
 - **No OpenAQ stations nearby:** If no monitoring stations are found within 25 km of the country centroid, air quality is reported as `{"pm25": -1, "pm10": -1, "level": "Unknown"}`. Note: the assignment specification states 50 km, but the OpenAQ v3 API enforces a maximum radius of 25,000 m, so 25 km is used instead.
 - **`lastRetrieval` is never cached:** The timestamp in a dashboard response always reflects the actual request time, not when the underlying data was fetched from external APIs.
 - **Multiple capital cities:** When a country has more than one capital (e.g. South Africa), the first value returned by the Countries API is used.
-- **Partial upstream failure:** If one external API is unavailable during a dashboard retrieval, that field is omitted (`null`) from the response while other fields remain populated.
+- **Partial upstream failure:** If one external API is unavailable during a dashboard retrieval, that field is omitted entirely from the response while other fields remain populated.
 - **Webhook country is a wildcard:** A webhook with an empty `country` field matches events for all countries.
 - **Nominatim rate limit:** Nominatim enforces 1 request/second. The client implements a token-bucket throttle. The 24-hour cache means this limit is rarely reached.
 
