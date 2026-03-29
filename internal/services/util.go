@@ -7,6 +7,14 @@ import (
 	"time"
 )
 
+var osloLocation = func() *time.Location {
+	loc, err := time.LoadLocation("Europe/Oslo")
+	if err != nil {
+		return time.UTC // fallback if tz database unavailable
+	}
+	return loc
+}()
+
 // generateID returns a cryptographically random 16-character hex string.
 func generateID() string {
 	b := make([]byte, 8)
@@ -16,7 +24,7 @@ func generateID() string {
 	return hex.EncodeToString(b)
 }
 
-// timestamp returns the current UTC time in the project-standard format.
+// timestamp returns the current Oslo time in the project-standard format.
 func timestamp() string {
-	return time.Now().UTC().Format("20060102 15:04")
+	return time.Now().In(osloLocation).Format("20060102 15:04")
 }

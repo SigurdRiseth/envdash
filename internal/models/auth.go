@@ -7,6 +7,7 @@ type AuthRequest struct {
 }
 
 // AuthCreateResponse is returned by POST /auth/.
+// CreatedAt is the server-assigned key creation timestamp in "20060102 15:04" format.
 type AuthCreateResponse struct {
 	Key       string `json:"key"`
 	CreatedAt string `json:"createdAt"`
