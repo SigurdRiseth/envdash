@@ -30,8 +30,7 @@ func newAuthHandler(svc services.AuthService) *authHandler {
 // handleCollection handles POST /auth/ — generate and persist a new API key.
 // Decodes an optional AuthRequest body (name, email) from JSON; missing or
 // malformed bodies are accepted without error since those fields are not
-// validated. Responds 201 Created with {"key": "...", "createdAt": "..."}.
-// Only POST is accepted; all other methods return 405 Method Not Allowed.
+// validated. Responds 201 Created with {"key": "<key>", "createdAt": "<timestamp>"}.
 func (h *authHandler) handleCollection(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
@@ -56,9 +55,8 @@ func (h *authHandler) handleCollection(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleItem handles DELETE /auth/{key} — permanently revoke an existing API key.
-// The key is extracted directly from the URL path. Responds 204 No Content on
-// success, 404 Not Found if the key does not exist, or 400 Bad Request if no
-// key segment is present in the path. Only DELETE is accepted.
+// Responds 204 No Content on success, 404 Not Found if the key does not exist,
+// or 400 Bad Request if no key segment is present in the path.
 func (h *authHandler) handleItem(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodDelete {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
