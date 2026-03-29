@@ -46,16 +46,14 @@ func (c *CurrencyClient) GetRates(ctx context.Context, base string, targets []st
 		return nil, fmt.Errorf("currency: build request: %w", err)
 	}
 
-	var wrapper struct {
-		Rates map[string]float64 `json:"rates"`
-	}
-	if err := fetchJSON(c.http, req, &wrapper, "currency"); err != nil {
+	var allRates map[string]float64
+	if err := fetchJSON(c.http, req, &allRates, "currency"); err != nil {
 		return nil, err
 	}
 
-	cacheSet(ctx, c.cache, key, c.cacheTTL, wrapper.Rates)
+	cacheSet(ctx, c.cache, key, c.cacheTTL, allRates)
 
-	return filterRates(wrapper.Rates, targets), nil
+	return filterRates(allRates, targets), nil
 }
 
 // filterRates returns a subset of all containing only the keys in targets.
