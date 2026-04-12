@@ -205,6 +205,48 @@ docker run -p 8080:8080 --env-file .env envdash
 docker compose up --build
 ```
 
+---
+
+## Deployment (OpenStack SkyHigh)
+
+The service runs on an Ubuntu 22.04 VM at `10.212.171.150` (reachable from the NTNU network or VPN).
+
+### SSH access
+
+```bash
+ssh -i ~/.ssh/envdash ubuntu@10.212.171.150
+```
+
+### Initial setup (once, on a fresh VM)
+
+```bash
+# On the VM:
+bash deployment/setup.sh
+# Edit .env with real credentials:
+nano /home/ubuntu/envdash/.env
+# Start the service:
+cd /home/ubuntu/envdash && docker compose up -d
+```
+
+### Deploy an update
+
+```bash
+# On the VM:
+cd /home/ubuntu/envdash && ./deployment/deploy.sh
+```
+
+Or from your local machine in one command:
+
+```bash
+ssh -i ~/.ssh/envdash ubuntu@10.212.171.150 'cd /home/ubuntu/envdash && ./deployment/deploy.sh'
+```
+
+### Check logs
+
+```bash
+docker compose logs -f
+```
+
 ### Integration tests (real Firestore)
 
 ```bash
