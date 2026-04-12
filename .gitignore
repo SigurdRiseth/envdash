@@ -38,4 +38,8 @@ firebase-credentials.json
 # Build artifacts
 dist/
 
+# Claude Code
+CLAUDE.md
+.claude/
+
 environment-dashboard-service-firebase-adminsdk.json

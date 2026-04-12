@@ -1,0 +1,6 @@
+.git
+.env
+*.json
+deployment/
+bin/
+CLAUDE.md
