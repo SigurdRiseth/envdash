@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # One-time initial setup on a fresh Ubuntu 22.04 VM.
-# Run as the ubuntu user: bash setup.sh
+# Assumes the repo is already cloned. Run from the repo root:
+#   bash deployment/setup.sh
 set -euo pipefail
 
-REPO_URL="https://github.com/SigurdRiseth/Air-Quality-Environment-Dashboard-Service.git"
+REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
 # ── 1. Install Docker ────────────────────────────────────────────────────────
 echo "--- installing Docker ---"
@@ -26,14 +27,10 @@ sudo apt-get install -y -q docker-ce docker-ce-cli containerd.io docker-compose-
 sudo usermod -aG docker ubuntu
 echo "--- Docker $(docker --version) installed ---"
 
-# ── 2. Clone repo ────────────────────────────────────────────────────────────
-echo "--- cloning repository ---"
-git clone "${REPO_URL}" /home/ubuntu/envdash
-cd /home/ubuntu/envdash
-
-# ── 3. Create .env file ──────────────────────────────────────────────────────
-echo "--- creating .env (edit this with your secrets!) ---"
-cat > /home/ubuntu/envdash/.env <<'EOF'
+# ── 2. Create .env file ──────────────────────────────────────────────────────
+if [ ! -f "${REPO_DIR}/.env" ]; then
+  echo "--- creating .env template ---"
+  cat > "${REPO_DIR}/.env" <<'EOF'
 SERVER_PORT=8080
 FIREBASE_PROJECT_ID=your-firebase-project-id
 FIREBASE_CREDENTIALS_JSON={"type":"service_account",...}
@@ -45,13 +42,16 @@ NOMINATIM_API_URL=https://nominatim.openstreetmap.org
 CURRENCY_API_URL=http://129.241.150.113:9090/currency
 CACHE_PURGE_INTERVAL_HOURS=1
 EOF
-chmod 600 /home/ubuntu/envdash/.env
+  chmod 600 "${REPO_DIR}/.env"
+else
+  echo "--- .env already exists, skipping ---"
+fi
 
 echo ""
 echo "=== Setup complete ==="
-echo "Edit /home/ubuntu/envdash/.env with your real secrets, then run:"
-echo "  cd /home/ubuntu/envdash && docker compose up -d"
+echo "Edit ${REPO_DIR}/.env with your real secrets, then run:"
+echo "  cd ${REPO_DIR} && docker compose up --build -d"
 echo "  docker compose logs -f"
 echo ""
 echo "To deploy future updates:"
-echo "  cd /home/ubuntu/envdash && ./deployment/deploy.sh"
+echo "  ${REPO_DIR}/deployment/deploy.sh"

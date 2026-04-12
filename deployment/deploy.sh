@@ -3,7 +3,7 @@
 # Usage: ./deployment/deploy.sh
 set -euo pipefail
 
-cd /home/ubuntu/envdash
+cd "$(dirname "$0")/.."
 
 echo "--- pulling latest changes ---"
 git pull
