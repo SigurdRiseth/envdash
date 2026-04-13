@@ -214,6 +214,48 @@ func TestNotificationService_Patch_NotFound(t *testing.T) {
 	}
 }
 
+func TestNotificationService_Patch_EventToThresholdRequiresThreshold(t *testing.T) {
+	svc := newTestNotifService()
+	// Create a lifecycle notification (no threshold)
+	n, _ := svc.Create(context.Background(), models.NotificationRequest{
+		URL:   "https://example.com/hook",
+		Event: models.EventRegister,
+	})
+
+	// Attempt to change event to THRESHOLD without providing a threshold
+	_, err := svc.Patch(context.Background(), n.ID, map[string]interface{}{
+		"event": models.EventThreshold,
+	})
+	assertValidationError(t, err, "threshold")
+}
+
+func TestNotificationService_Patch_AddThresholdThenChangeToThreshold(t *testing.T) {
+	svc := newTestNotifService()
+	// Start with a lifecycle notification, patch in both event and threshold together
+	n, _ := svc.Create(context.Background(), models.NotificationRequest{
+		URL:   "https://example.com/hook",
+		Event: models.EventRegister,
+	})
+
+	patched, err := svc.Patch(context.Background(), n.ID, map[string]interface{}{
+		"event": models.EventThreshold,
+		"threshold": map[string]interface{}{
+			"field":    "pm25",
+			"operator": ">",
+			"value":    float64(35),
+		},
+	})
+	if err != nil {
+		t.Fatalf("Patch: unexpected error: %v", err)
+	}
+	if patched.Event != models.EventThreshold {
+		t.Errorf("Event = %q, want THRESHOLD", patched.Event)
+	}
+	if patched.Threshold == nil {
+		t.Error("Threshold should be set after patch")
+	}
+}
+
 // ---- helper ----
 
 // assertValidationError fails the test if err is not a *models.ValidationError

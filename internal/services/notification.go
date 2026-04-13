@@ -93,6 +93,10 @@ func (s *notificationService) Patch(ctx context.Context, id string, patch map[st
 		}
 	}
 
+	if existing.Event == models.EventThreshold && existing.Threshold == nil {
+		return nil, &models.ValidationError{Message: "'threshold' is required for THRESHOLD event"}
+	}
+
 	if err := s.notifs.Create(ctx, existing); err != nil { // Set (overwrite)
 		return nil, fmt.Errorf("patch notification: %w", err)
 	}
