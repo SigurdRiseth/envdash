@@ -42,4 +42,8 @@ dist/
 CLAUDE.md
 .claude/
 
+# Local scripts and task files
+task.md
+test_prod.sh
+
 environment-dashboard-service-firebase-adminsdk.json
