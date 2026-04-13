@@ -133,12 +133,12 @@ func (h *registrationHandler) update(w http.ResponseWriter, r *http.Request, id 
 		return
 	}
 
-	updated, err := h.svc.Update(r.Context(), id, req)
+	_, err := h.svc.Update(r.Context(), id, req)
 	if err != nil {
 		handleServiceError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, updated)
+	w.WriteHeader(http.StatusOK)
 }
 
 // patch handles PATCH /registrations/{id} — partially update a registration.

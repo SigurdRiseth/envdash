@@ -186,6 +186,10 @@ func TestRegistrations_PUT(t *testing.T) {
 			if rr.Code != tt.wantStatus {
 				t.Errorf("status = %d, want %d", rr.Code, tt.wantStatus)
 			}
+			// Spec: PUT 200 OK with empty body
+			if tt.wantStatus == http.StatusOK && rr.Body.Len() != 0 {
+				t.Errorf("PUT 200 body must be empty, got: %s", rr.Body.String())
+			}
 		})
 	}
 }
