@@ -129,7 +129,11 @@ func (s *registrationService) Delete(ctx context.Context, id string) error {
 	return nil
 }
 
-// fireLifecycle dispatches all matching webhook notifications for a lifecycle event.
+// fireLifecycle looks up all webhook notifications matching isoCode and event,
+// then dispatches a payload to each registered URL asynchronously. It is called
+// after every mutating operation (Create → REGISTER, Update/Patch → CHANGE,
+// Delete → DELETE). Errors from the repository are silently ignored so that a
+// failing Firestore read never causes the original operation to appear to fail.
 func (s *registrationService) fireLifecycle(ctx context.Context, isoCode, event string) {
 	notifs, err := s.notifs.ListMatching(ctx, isoCode, event)
 	if err != nil {
@@ -146,6 +150,11 @@ func (s *registrationService) fireLifecycle(ctx context.Context, isoCode, event 
 	}
 }
 
+// applyFeaturePatch applies the key-value pairs in m to f, updating only the
+// fields that are present. Keys not recognised as feature fields are silently
+// ignored. Type mismatches (e.g. a non-bool value for "temperature") are also
+// silently ignored — only correctly-typed values are applied. This matches the
+// partial-update semantics of PATCH: absent means unchanged.
 func applyFeaturePatch(f *models.Features, m map[string]interface{}) {
 	if v, ok := m["temperature"].(bool); ok {
 		f.Temperature = v

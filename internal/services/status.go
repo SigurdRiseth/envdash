@@ -11,7 +11,10 @@ import (
 	"envdash/internal/firebase"
 )
 
-// StatusResponse is the response body for GET /status/.
+// StatusResponse is the response body for GET /status/. Each *API field holds
+// the HTTP status code returned by a lightweight probe of that upstream service
+// (or 503 if the probe failed). NotificationDB reflects Firestore reachability.
+// Webhooks is the total number of registered webhook notifications.
 type StatusResponse struct {
 	CountriesAPI   int    `json:"countries_api"`
 	MeteoAPI       int    `json:"meteo_api"`
@@ -102,6 +105,10 @@ func (s *statusService) Get(ctx context.Context) StatusResponse {
 	}
 }
 
+// probe sends a GET request to url and returns the HTTP status code.
+// Returns 503 if the request cannot be constructed or the connection fails.
+// The User-Agent header is set to identify the probe; the OpenAQ X-API-Key
+// header is added automatically when the URL belongs to the OpenAQ base URL.
 func (s *statusService) probe(ctx context.Context, url string) int {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {

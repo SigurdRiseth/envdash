@@ -7,6 +7,9 @@ import (
 	"time"
 )
 
+// osloLocation is the time zone used for all timestamps produced by this
+// service ("20060102 15:04" format). The assignment specifies Oslo (CET/CEST).
+// Falls back to UTC if the system timezone database is unavailable.
 var osloLocation = func() *time.Location {
 	loc, err := time.LoadLocation("Europe/Oslo")
 	if err != nil {

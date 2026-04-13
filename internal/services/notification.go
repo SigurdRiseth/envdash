@@ -59,7 +59,11 @@ func (s *notificationService) Delete(ctx context.Context, id string) error {
 	return s.notifs.Delete(ctx, id)
 }
 
-// Patch applies a partial update to a notification. Recognised keys: "url", "country", "event", "threshold".
+// Patch applies a partial update to a notification. Only the keys present in
+// patch are changed; all other fields remain as stored. Recognised keys are
+// "url", "country", "event", and "threshold". Unrecognised keys are silently
+// ignored. If the resulting event is THRESHOLD but no threshold is set,
+// validation fails with a *models.ValidationError.
 func (s *notificationService) Patch(ctx context.Context, id string, patch map[string]interface{}) (*models.Notification, error) {
 	existing, err := s.notifs.Get(ctx, id)
 	if err != nil {
@@ -103,6 +107,11 @@ func (s *notificationService) Patch(ctx context.Context, id string, patch map[st
 	return existing, nil
 }
 
+// parseThresholdMap converts the raw map[string]interface{} representation of a
+// threshold (as decoded from a PATCH JSON body) into a *models.Threshold.
+// Field and Operator are validated against ValidThresholdFields and
+// ValidThresholdOperators; a *models.ValidationError is returned on failure.
+// Value defaults to 0 if the key is absent or not a float64.
 func parseThresholdMap(m map[string]interface{}) (*models.Threshold, error) {
 	t := &models.Threshold{}
 	if v, ok := m["field"].(string); ok {

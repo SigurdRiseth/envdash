@@ -5,7 +5,10 @@ import (
 	"net/url"
 )
 
-// Event types for webhook notifications.
+// Event type constants used in webhook registrations and webhook payloads.
+// REGISTER, CHANGE, and DELETE fire on registration lifecycle changes.
+// INVOKE fires each time a populated dashboard is retrieved.
+// THRESHOLD fires when a live measured value crosses a registered limit.
 const (
 	EventRegister  = "REGISTER"
 	EventChange    = "CHANGE"
@@ -14,7 +17,8 @@ const (
 	EventThreshold = "THRESHOLD"
 )
 
-// ValidEvents is the set of accepted event type strings.
+// ValidEvents is the set of event type strings accepted by POST /notifications/.
+// Used for validation in the service layer.
 var ValidEvents = map[string]bool{
 	EventRegister:  true,
 	EventChange:    true,
@@ -23,13 +27,18 @@ var ValidEvents = map[string]bool{
 	EventThreshold: true,
 }
 
-// ValidThresholdFields is the set of measurement fields that can be used in a Threshold.
+// ValidThresholdFields is the set of dashboard measurement fields that can be
+// monitored by a THRESHOLD webhook: pm25, pm10, temperature, precipitation.
 var ValidThresholdFields = map[string]bool{"pm25": true, "pm10": true, "temperature": true, "precipitation": true}
 
-// ValidThresholdOperators is the set of comparison operators accepted in a Threshold.
+// ValidThresholdOperators is the set of comparison operators accepted in a
+// Threshold: >, <, >= and <=.
 var ValidThresholdOperators = map[string]bool{">": true, "<": true, ">=": true, "<=": true}
 
-// Notification represents a persisted webhook registration.
+// Notification is a persisted webhook registration. It is stored in Firestore
+// and survives service restarts. Country is stored in upper-case; an empty
+// Country matches events for all countries (wildcard). Threshold is only
+// present when Event is THRESHOLD.
 type Notification struct {
 	ID        string     `json:"id" firestore:"id"`
 	URL       string     `json:"url" firestore:"url"`
@@ -38,7 +47,10 @@ type Notification struct {
 	Threshold *Threshold `json:"threshold,omitempty" firestore:"threshold,omitempty"`
 }
 
-// Threshold defines the conditions under which a THRESHOLD webhook fires.
+// Threshold defines the condition that triggers a THRESHOLD webhook.
+// Field must be one of ValidThresholdFields; Operator must be one of
+// ValidThresholdOperators. The webhook fires when the live measured value
+// satisfies: measuredValue <Operator> Value.
 type Threshold struct {
 	Field    string  `json:"field" firestore:"field"`
 	Operator string  `json:"operator" firestore:"operator"` // >, <, >=, <=
@@ -46,6 +58,8 @@ type Threshold struct {
 }
 
 // NotificationRequest is the body accepted by POST /notifications/.
+// URL and Event are required. Country is optional (empty = all countries).
+// Threshold is required when Event is THRESHOLD and must be omitted otherwise.
 type NotificationRequest struct {
 	URL       string     `json:"url"`
 	Country   string     `json:"country"`
@@ -53,7 +67,8 @@ type NotificationRequest struct {
 	Threshold *Threshold `json:"threshold,omitempty"`
 }
 
-// NotificationCreateResponse is returned by POST /notifications/.
+// NotificationCreateResponse is the body returned by POST /notifications/ on success.
+// Only the server-assigned ID is returned; the full registration can be fetched via GET.
 type NotificationCreateResponse struct {
 	ID string `json:"id"`
 }
@@ -85,7 +100,9 @@ func (n NotificationRequest) Validate() error {
 	return nil
 }
 
-// WebhookPayload is the JSON body POSTed to a registered webhook URL when an event fires.
+// WebhookPayload is the JSON body POSTed to a registered webhook URL when an
+// event fires. Details is only populated for THRESHOLD events; it is omitted
+// from the payload for lifecycle events (REGISTER, CHANGE, DELETE, INVOKE).
 type WebhookPayload struct {
 	ID      string            `json:"id"`
 	Country string            `json:"country"`
@@ -94,9 +111,9 @@ type WebhookPayload struct {
 	Details *ThresholdDetails `json:"details,omitempty"`
 }
 
-// ThresholdDetails is included in THRESHOLD webhook payloads to describe what
-// triggered the notification: the monitored field, the configured threshold
-// condition, and the live measured value that crossed it.
+// ThresholdDetails is the "details" object included in THRESHOLD webhook
+// payloads. It records the field that was monitored, the configured threshold
+// condition, and the live measured value that caused the webhook to fire.
 type ThresholdDetails struct {
 	Field         string  `json:"field"`
 	Operator      string  `json:"operator"`

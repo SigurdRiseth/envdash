@@ -181,6 +181,11 @@ func (s *dashboardService) Get(ctx context.Context, id string) (*models.Dashboar
 	return resp, nil
 }
 
+// fireInvoke dispatches INVOKE webhook notifications for the given country.
+// It looks up all webhooks registered for the INVOKE event that match isoCode
+// (including wildcard registrations with an empty country) and POSTs to each
+// URL asynchronously. Errors from the repository are silently ignored so that
+// a failing Firestore read never prevents a dashboard response from being sent.
 func (s *dashboardService) fireInvoke(ctx context.Context, isoCode string) {
 	notifs, err := s.notifs.ListMatching(ctx, isoCode, models.EventInvoke)
 	if err != nil {
@@ -197,6 +202,11 @@ func (s *dashboardService) fireInvoke(ctx context.Context, isoCode string) {
 	}
 }
 
+// fireThresholds evaluates all THRESHOLD webhooks for the given registration
+// against the live values in resp. For each webhook whose condition is met
+// (measuredValue <operator> threshold.Value), a payload is dispatched
+// asynchronously. Fields that are disabled in the registration or that failed
+// to populate (nil in resp) are skipped — the webhook will never fire for them.
 func (s *dashboardService) fireThresholds(ctx context.Context, reg *models.Registration, resp *models.DashboardResponse) {
 	notifs, err := s.notifs.ListMatching(ctx, reg.ISOCode, models.EventThreshold)
 	if err != nil {
@@ -245,7 +255,9 @@ func (s *dashboardService) fireThresholds(ctx context.Context, reg *models.Regis
 	}
 }
 
-// thresholdCrossed returns true if the measured value satisfies the comparison.
+// thresholdCrossed reports whether measured satisfies the comparison
+// "measured <operator> threshold". Returns false for any unrecognised operator
+// so that unknown operators are treated as non-matching rather than panicking.
 func thresholdCrossed(measured float64, operator string, threshold float64) bool {
 	switch operator {
 	case ">":
