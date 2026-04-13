@@ -105,7 +105,7 @@ curl -X DELETE -H "X-API-Key: $KEY" "$BASE/registrations/$ID"
 | Threshold operators `>=` and `<=` | Done |
 | Automatic cache purging | Done |
 | API key authentication | Done |
-| Compound thresholds (single webhook with high + low bound) | Not implemented — each registration covers one comparison |
+| Compound thresholds (single webhook with high + low bound) | Not implemented — register two separate THRESHOLD webhooks to achieve the same effect |
 
 ---
 
