@@ -595,11 +595,11 @@ No HTTP routers, ORMs, or web frameworks were added. The standard `net/http` pac
 | Member | Primary areas |
 |--------|--------------|
 | Sigurd Riseth | Architecture and system design; all endpoint handlers and service logic; Firebase repository layer; webhook dispatcher; Docker and deployment setup; integration tests |
-| Theodor Utvik | Code quality review and refactoring across all packages; unit test coverage; documentation; PR review and merging |
+| Theodor Utvik | Code quality review and refactoring across all packages; unit test coverage; endpoint development and debugging; documentation; PR review and merging |
 
 ### How we organized
 
-**Role distribution:** We split work around a driver/reviewer model. Sigurd took ownership of the implementation — designing the layered architecture, implementing all endpoints end-to-end, and setting up Firebase and Docker. Theodor focused on code quality: reviewing each PR, writing and improving unit tests, and ensuring the code followed our agreed conventions. This meant every significant change was seen by both members before merging.
+**Role distribution:** We split work around a driver/reviewer model. Sigurd took primary ownership of the architecture — designing the layered structure, implementing all endpoints end-to-end, and setting up Firebase and Docker. Theodor contributed actively to development: assisting with endpoint implementation and debugging, driving code quality through refactoring, writing and improving unit tests, and ensuring the code followed our agreed conventions. Every significant change was reviewed by both members before merging.
 
 **Workflow:** All changes were developed on feature branches and merged via pull requests on GitLab. We required at least one review approval before merging to `main`. The CI pipeline (GitHub Actions, mirrored to GitLab) ran `go test ./...` on every push, so `main` was always green.
 
