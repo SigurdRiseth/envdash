@@ -25,5 +25,9 @@ func (h *statusHandler) handle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	status := h.svc.Get(r.Context())
-	writeJSON(w, http.StatusOK, status)
+	httpStatus := http.StatusOK
+	if status.NotificationDB != http.StatusOK {
+		httpStatus = http.StatusInternalServerError
+	}
+	writeJSON(w, httpStatus, status)
 }

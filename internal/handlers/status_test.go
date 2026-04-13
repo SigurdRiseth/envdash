@@ -77,3 +77,37 @@ func TestStatus_ContentType(t *testing.T) {
 		t.Errorf("Content-Type = %q, want application/json", ct)
 	}
 }
+
+func TestStatus_Returns500WhenFirebaseDown(t *testing.T) {
+	statusSvc := &mockStatusService{
+		response: services.StatusResponse{
+			CountriesAPI:   200,
+			MeteoAPI:       200,
+			OpenAQAPI:      200,
+			NominatimAPI:   200,
+			CurrencyAPI:    200,
+			NotificationDB: 503, // Firebase is down
+			Webhooks:       0,
+			Version:        "v1",
+			Uptime:         60,
+		},
+	}
+	router := newTestRouter(newMockRegService(), newMockDashService(), newMockNotifService(), statusSvc)
+
+	req := httptest.NewRequest(http.MethodGet, "/envdash/v1/status/", nil)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusInternalServerError {
+		t.Errorf("status = %d, want 500 when Firebase is down", rr.Code)
+	}
+
+	// Body should still contain the status details (for diagnostics)
+	var resp services.StatusResponse
+	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if resp.NotificationDB != 503 {
+		t.Errorf("notification_db = %d, want 503", resp.NotificationDB)
+	}
+}
