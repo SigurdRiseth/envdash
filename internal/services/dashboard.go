@@ -2,7 +2,7 @@ package services
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"sync"
 
 	"envdash/internal/clients"
@@ -17,13 +17,14 @@ type DashboardService interface {
 }
 
 type dashboardService struct {
-	regs      firebase.RegistrationRepository
-	notifs    firebase.NotificationRepository
-	countries *clients.CountriesClient
-	meteo     *clients.MeteoClient
-	openaq    *clients.OpenAQClient
-	currency  *clients.CurrencyClient
+	regs       firebase.RegistrationRepository
+	notifs     firebase.NotificationRepository
+	countries  *clients.CountriesClient
+	meteo      *clients.MeteoClient
+	openaq     *clients.OpenAQClient
+	currency   *clients.CurrencyClient
 	dispatcher *webhook.Dispatcher
+	logger     *slog.Logger
 }
 
 // NewDashboardService constructs a DashboardService.
@@ -35,15 +36,17 @@ func NewDashboardService(
 	openaq *clients.OpenAQClient,
 	currency *clients.CurrencyClient,
 	dispatcher *webhook.Dispatcher,
+	logger *slog.Logger,
 ) DashboardService {
 	return &dashboardService{
-		regs:      regs,
-		notifs:    notifs,
-		countries: countries,
-		meteo:     meteo,
-		openaq:    openaq,
-		currency:  currency,
+		regs:       regs,
+		notifs:     notifs,
+		countries:  countries,
+		meteo:      meteo,
+		openaq:     openaq,
+		currency:   currency,
 		dispatcher: dispatcher,
+		logger:     logger,
 	}
 }
 
@@ -66,7 +69,7 @@ func (s *dashboardService) Get(ctx context.Context, id string) (*models.Dashboar
 	// area, and base currency in a single request.
 	countryData, err := s.countries.GetByISO(ctx, reg.ISOCode)
 	if err != nil {
-		log.Printf("dashboard %s: countries API error: %v", id, err)
+		s.logger.Warn("countries API error", "dashboard", id, "err", err)
 	}
 
 	// Fill country-sourced fields
@@ -139,7 +142,7 @@ func (s *dashboardService) Get(ctx context.Context, id string) (*models.Dashboar
 	// Populate weather fields
 	if needsMeteo {
 		if meteoErr != nil {
-			log.Printf("dashboard %s: meteo API error: %v", id, meteoErr)
+			s.logger.Warn("meteo API error", "dashboard", id, "err", meteoErr)
 		} else if meteoData != nil {
 			if f.Temperature {
 				resp.Features.Temperature = &meteoData.Temperature
@@ -153,7 +156,7 @@ func (s *dashboardService) Get(ctx context.Context, id string) (*models.Dashboar
 	// Populate air quality
 	if needsOpenAQ {
 		if openaqErr != nil {
-			log.Printf("dashboard %s: openaq API error: %v", id, openaqErr)
+			s.logger.Warn("openaq API error", "dashboard", id, "err", openaqErr)
 		} else if openaqData != nil {
 			resp.Features.AirQuality = &models.AirQualityData{
 				PM25:  openaqData.PM25,
@@ -166,7 +169,7 @@ func (s *dashboardService) Get(ctx context.Context, id string) (*models.Dashboar
 	// Populate currency
 	if needsCurrency {
 		if currencyErr != nil {
-			log.Printf("dashboard %s: currency API error: %v", id, currencyErr)
+			s.logger.Warn("currency API error", "dashboard", id, "err", currencyErr)
 		} else {
 			resp.Features.TargetCurrencies = currencyRates
 		}

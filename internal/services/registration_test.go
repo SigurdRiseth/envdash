@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"strings"
 	"testing"
@@ -85,7 +86,7 @@ func newTestRegService() services.RegistrationService {
 	return services.NewRegistrationService(
 		newStubRegRepo(),
 		&stubNotifRepo{},
-		webhook.NewDispatcher(&noopHTTPDoer{}),
+		webhook.NewDispatcher(&noopHTTPDoer{}, slog.New(slog.NewTextHandler(io.Discard, nil))),
 	)
 }
 

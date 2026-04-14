@@ -3,6 +3,7 @@ package webhook_test
 import (
 	"encoding/json"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"sync/atomic"
@@ -28,7 +29,7 @@ func TestDispatcher_Dispatch_DeliverPayload(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	d := webhook.NewDispatcher(http.DefaultClient)
+	d := webhook.NewDispatcher(http.DefaultClient, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	payload := models.WebhookPayload{
 		ID:      "abc123",
 		Country: "NO",
@@ -60,7 +61,7 @@ func TestDispatcher_Dispatch_RetriesOnFailure(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	d := webhook.NewDispatcher(http.DefaultClient)
+	d := webhook.NewDispatcher(http.DefaultClient, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	d.Dispatch(models.WebhookPayload{ID: "x", Event: models.EventRegister, Time: "t"}, srv.URL)
 
 	// Wait long enough for the retry (retryDelay is 2s in dispatcher)
@@ -72,7 +73,7 @@ func TestDispatcher_Dispatch_RetriesOnFailure(t *testing.T) {
 }
 
 func TestDispatcher_Dispatch_NocrashOnUnreachable(t *testing.T) {
-	d := webhook.NewDispatcher(http.DefaultClient)
+	d := webhook.NewDispatcher(http.DefaultClient, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	// Should not panic even when the URL is unreachable
 	d.Dispatch(models.WebhookPayload{ID: "y", Event: models.EventDelete, Time: "t"}, "http://127.0.0.1:1")
 	time.Sleep(2500 * time.Millisecond) // wait for retry to finish too
@@ -87,7 +88,7 @@ func TestDispatcher_Dispatch_ThresholdPayload(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	d := webhook.NewDispatcher(http.DefaultClient)
+	d := webhook.NewDispatcher(http.DefaultClient, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	payload := models.WebhookPayload{
 		ID:      "thr1",
 		Country: "NO",

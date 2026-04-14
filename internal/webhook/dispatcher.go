@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"log"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -19,12 +19,13 @@ const (
 
 // Dispatcher sends webhook payloads to registered URLs.
 type Dispatcher struct {
-	http clients.HTTPDoer
+	http   clients.HTTPDoer
+	logger *slog.Logger
 }
 
 // NewDispatcher constructs a Dispatcher.
-func NewDispatcher(http clients.HTTPDoer) *Dispatcher {
-	return &Dispatcher{http: http}
+func NewDispatcher(http clients.HTTPDoer, logger *slog.Logger) *Dispatcher {
+	return &Dispatcher{http: http, logger: logger}
 }
 
 // Dispatch sends the payload to url asynchronously. The calling goroutine is
@@ -32,10 +33,10 @@ func NewDispatcher(http clients.HTTPDoer) *Dispatcher {
 func (d *Dispatcher) Dispatch(payload models.WebhookPayload, url string) {
 	go func() {
 		if err := d.send(payload, url); err != nil {
-			log.Printf("webhook: delivery failed to %s: %v — retrying", url, err)
+			d.logger.Warn("webhook delivery failed, retrying", "url", url, "err", err)
 			time.Sleep(retryDelay)
 			if err := d.send(payload, url); err != nil {
-				log.Printf("webhook: retry failed to %s: %v", url, err)
+				d.logger.Error("webhook retry failed", "url", url, "err", err)
 			}
 		}
 	}()

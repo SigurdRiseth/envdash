@@ -2,6 +2,8 @@ package handlers_test
 
 import (
 	"encoding/json"
+	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -17,6 +19,7 @@ func newTestRouterWithAuth(authSvc *mockAuthService) http.Handler {
 		newMockNotifService(),
 		&mockStatusService{},
 		authSvc,
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
 	)
 }
 

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"log/slog"
 	"net/http"
 	"strings"
 
@@ -27,6 +28,7 @@ func NewRouter(
 	notifSvc services.NotificationService,
 	statusSvc services.StatusService,
 	authSvc services.AuthService,
+	logger *slog.Logger,
 ) http.Handler {
 	reg := newRegistrationHandler(regSvc)
 	dash := newDashboardHandler(dashSvc)
@@ -78,7 +80,7 @@ func NewRouter(
 	if authSvc != nil {
 		h = apiKeyMiddleware(authSvc, h)
 	}
-	return loggingMiddleware(h)
+	return loggingMiddleware(logger, h)
 }
 
 // isCollectionPath reports whether path refers to a collection root rather than

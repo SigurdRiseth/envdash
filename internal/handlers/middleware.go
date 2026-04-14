@@ -1,7 +1,7 @@
 package handlers
 
 import (
-	"log"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -23,14 +23,19 @@ func (rw *responseWriter) WriteHeader(code int) {
 	rw.ResponseWriter.WriteHeader(code)
 }
 
-// loggingMiddleware logs method, path, status code, and duration for every request.
-// Output format: "METHOD /path STATUS duration" (e.g. "GET /envdash/v1/status/ 200 1.2ms").
-func loggingMiddleware(next http.Handler) http.Handler {
+// loggingMiddleware logs method, path, status code, and duration for every request
+// as structured fields using the provided logger.
+func loggingMiddleware(logger *slog.Logger, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 		rw := &responseWriter{ResponseWriter: w, status: http.StatusOK}
 		next.ServeHTTP(rw, r)
-		log.Printf("%s %s %d %s", r.Method, r.URL.Path, rw.status, time.Since(start))
+		logger.Info("request",
+			"method", r.Method,
+			"path", r.URL.Path,
+			"status", rw.status,
+			"duration", time.Since(start).String(),
+		)
 	})
 }
 
@@ -43,8 +48,8 @@ func apiKeyMiddleware(authSvc services.AuthService, next http.Handler) http.Hand
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
 
-		// Allow requests to exempt routes through without any key check.
-		// We append "/" before the prefix check so that exact matches (e.g.
+		// Allow requests to exempt routes through without any key check. We
+		// append "/" before the prefix check so that exact matches (e.g.
 		// "/envdash/v1/status") pass the same way as "/envdash/v1/status/".
 		for _, prefix := range apiKeyExemptPrefixes {
 			if strings.HasPrefix(path+"/", prefix) {

@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -112,7 +114,7 @@ func buildDashService(
 	notifRepo firebase.NotificationRepository,
 	srvs *dashboardTestServers,
 ) services.DashboardService {
-	return buildDashServiceWithDispatcher(regRepo, notifRepo, srvs, webhook.NewDispatcher(&noopHTTPDoer{}))
+	return buildDashServiceWithDispatcher(regRepo, notifRepo, srvs, webhook.NewDispatcher(&noopHTTPDoer{}, slog.New(slog.NewTextHandler(io.Discard, nil))))
 }
 
 func buildDashServiceWithDispatcher(
@@ -123,6 +125,7 @@ func buildDashServiceWithDispatcher(
 ) services.DashboardService {
 	cache := &noopCacheRepo{}
 	hc := http.DefaultClient
+	nopLogger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	return services.NewDashboardService(
 		regRepo,
 		notifRepo,
@@ -131,6 +134,7 @@ func buildDashServiceWithDispatcher(
 		clients.NewOpenAQClient(srvs.openaq.URL, "", hc, cache, 0),
 		clients.NewCurrencyClient(srvs.currency.URL, hc, cache, 0),
 		dispatcher,
+		nopLogger,
 	)
 }
 
@@ -457,7 +461,7 @@ func TestDashboardService_Get_InvokeWebhookFires(t *testing.T) {
 	}
 	regRepo := newStubRegRepo()
 	regRepo.regs["reg9"] = fullFeaturesReg("reg9")
-	realDispatcher := webhook.NewDispatcher(http.DefaultClient)
+	realDispatcher := webhook.NewDispatcher(http.DefaultClient, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	svc := buildDashServiceWithDispatcher(regRepo, notifRepo, srvs, realDispatcher)
 
 	_, err := svc.Get(context.Background(), "reg9")
@@ -504,7 +508,7 @@ func TestDashboardService_Get_ThresholdWebhookFires(t *testing.T) {
 	}
 	regRepo := newStubRegRepo()
 	regRepo.regs["reg10"] = fullFeaturesReg("reg10")
-	realDispatcher := webhook.NewDispatcher(http.DefaultClient)
+	realDispatcher := webhook.NewDispatcher(http.DefaultClient, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	svc := buildDashServiceWithDispatcher(regRepo, notifRepo, srvs, realDispatcher)
 
 	_, err := svc.Get(context.Background(), "reg10")

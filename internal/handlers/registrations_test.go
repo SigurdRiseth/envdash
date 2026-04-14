@@ -3,6 +3,8 @@ package handlers_test
 import (
 	"bytes"
 	"encoding/json"
+	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -20,7 +22,7 @@ func newTestRouter(
 	notifSvc services.NotificationService,
 	statusSvc services.StatusService,
 ) http.Handler {
-	return handlers.NewRouter(regSvc, dashSvc, notifSvc, statusSvc, nil)
+	return handlers.NewRouter(regSvc, dashSvc, notifSvc, statusSvc, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
 }
 
 func TestRegistrations_POST(t *testing.T) {
