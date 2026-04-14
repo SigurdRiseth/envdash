@@ -25,4 +25,4 @@ jobs:
           GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
         run: |
           git remote add gitlab https://oauth2:$GITLAB_TOKEN@git.gvk.idi.ntnu.no/course/prog2005/prog2005-2025-workspace/sigurdriseth/assignment-2.git
-          git push --force gitlab HEAD:main
+          git push gitlab HEAD:main
