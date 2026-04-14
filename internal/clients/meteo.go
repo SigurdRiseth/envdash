@@ -45,12 +45,16 @@ func NewMeteoClient(baseURL string, http HTTPDoer, cache firebase.CacheRepositor
 // GetForecast returns mean temperature and precipitation for the given coordinates.
 // Results are cached for 3 hours.
 func (c *MeteoClient) GetForecast(ctx context.Context, lat, lon float64) (*MeteoData, error) {
+	// Coordinates are rounded to 4 decimal places for the cache key so nearby
+	// lookups within ~11 m share the same entry.
 	key := fmt.Sprintf("meteo:%.4f,%.4f", lat, lon)
 
 	if data, ok := cacheGet[MeteoData](ctx, c.cache, key); ok {
 		return &data, nil
 	}
 
+	// Request hourly temperature and precipitation for today only to minimise
+	// payload size. The API returns 24 values (one per hour).
 	params := url.Values{}
 	params.Set("latitude", fmt.Sprintf("%f", lat))
 	params.Set("longitude", fmt.Sprintf("%f", lon))
@@ -68,6 +72,7 @@ func (c *MeteoClient) GetForecast(ctx context.Context, lat, lon float64) (*Meteo
 		return nil, err
 	}
 
+	// Collapse the 24-element hourly slices into single daily averages.
 	data := &MeteoData{
 		Temperature:   mean(raw.Hourly.Temperature2m),
 		Precipitation: mean(raw.Hourly.Precipitation),

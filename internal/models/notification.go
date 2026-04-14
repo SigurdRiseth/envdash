@@ -77,15 +77,21 @@ type NotificationCreateResponse struct {
 // URL must be present and parseable, Event must be a recognised event type, and a
 // Threshold (with valid Field and Operator) is required when Event is THRESHOLD.
 func (n NotificationRequest) Validate() error {
+	// URL is always required and must be a parseable absolute URI.
 	if n.URL == "" {
 		return &ValidationError{Message: "'url' is required"}
 	}
 	if _, err := url.ParseRequestURI(n.URL); err != nil {
 		return &ValidationError{Message: "invalid url"}
 	}
+
+	// Reject any event string that isn't in the predefined allow-list.
 	if !ValidEvents[n.Event] {
 		return &ValidationError{Message: fmt.Sprintf("invalid event %q; must be one of REGISTER, CHANGE, DELETE, INVOKE, THRESHOLD", n.Event)}
 	}
+
+	// THRESHOLD events have additional constraints: a threshold block is mandatory
+	// and both the field and operator must be from the accepted sets.
 	if n.Event == EventThreshold {
 		if n.Threshold == nil {
 			return &ValidationError{Message: "'threshold' is required for THRESHOLD event"}

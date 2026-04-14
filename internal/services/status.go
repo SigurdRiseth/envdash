@@ -55,12 +55,16 @@ func NewStatusService(
 	}
 }
 
+// Get probes all upstream APIs concurrently and returns a snapshot of
+// operational health for the entire service.
 func (s *statusService) Get(ctx context.Context) StatusResponse {
 	type probeResult struct {
 		name string
 		code int
 	}
 
+	// Each entry pairs a short label with a lightweight probe URL that
+	// exercises the real network path without triggering expensive queries.
 	probes := []struct {
 		name string
 		url  string
@@ -72,6 +76,8 @@ func (s *statusService) Get(ctx context.Context) StatusResponse {
 		{"currency", s.cfg.CurrencyBaseURL + "/NOK"},
 	}
 
+	// Fan out all probes in parallel. The buffered channel ensures goroutines
+	// never block on send even if the receiver is slow.
 	results := make(map[string]int, len(probes))
 	ch := make(chan probeResult, len(probes))
 
@@ -80,6 +86,8 @@ func (s *statusService) Get(ctx context.Context) StatusResponse {
 			ch <- probeResult{name: name, code: s.probe(ctx, url)}
 		}(p.name, p.url)
 	}
+
+	// Collect exactly len(probes) results before moving on.
 	for range probes {
 		r := <-ch
 		results[r.name] = r.code
@@ -115,12 +123,15 @@ func (s *statusService) probe(ctx context.Context, url string) int {
 		return 503
 	}
 	req.Header.Set("User-Agent", "envdash/1.0 (status probe)")
+
+	// OpenAQ requires an API key on every request, even lightweight probes.
 	if s.cfg.OpenAQKey != "" && strings.Contains(url, s.cfg.OpenAQBaseURL) {
 		req.Header.Set("X-API-Key", s.cfg.OpenAQKey)
 	}
 
 	resp, err := s.http.Do(req)
 	if err != nil {
+		// Network failure or timeout — treat the upstream as unavailable.
 		return 503
 	}
 	defer resp.Body.Close()

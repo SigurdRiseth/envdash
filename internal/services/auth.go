@@ -25,6 +25,8 @@ func NewAuthService(keys firebase.APIKeyRepository) AuthService {
 	return &authService{keys: keys}
 }
 
+// Register generates a new API key, persists it, and returns it to the caller.
+// The key is only returned once — there is no retrieval endpoint for existing keys.
 func (s *authService) Register(ctx context.Context) (string, error) {
 	key := generateAPIKey()
 	if err := s.keys.Create(ctx, key); err != nil {
@@ -33,10 +35,14 @@ func (s *authService) Register(ctx context.Context) (string, error) {
 	return key, nil
 }
 
+// Revoke permanently deletes an API key. Returns firebase.ErrNotFound if the
+// key does not exist.
 func (s *authService) Revoke(ctx context.Context, key string) error {
 	return s.keys.Delete(ctx, key)
 }
 
+// Validate reports whether the given key exists in the API key store. A key
+// that has been revoked (deleted) will return false without an error.
 func (s *authService) Validate(ctx context.Context, key string) (bool, error) {
 	return s.keys.Exists(ctx, key)
 }

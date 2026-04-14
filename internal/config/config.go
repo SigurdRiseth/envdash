@@ -27,12 +27,15 @@ type Config struct {
 // Load reads configuration from environment variables.
 // Returns an error if any required variable is missing.
 func Load() (*Config, error) {
+	// Each field falls back to a sensible default when the env var is absent.
+	// API base URLs default to the course-provided instances; override in .env
+	// to point at local stubs during development or testing.
 	cfg := &Config{
-		Port:             getEnv("SERVER_PORT", "8080"),
-		FirebaseProject:  os.Getenv("FIREBASE_PROJECT_ID"),
-		FirebaseCreds:    os.Getenv("GOOGLE_APPLICATION_CREDENTIALS"),
+		Port:              getEnv("SERVER_PORT", "8080"),
+		FirebaseProject:   os.Getenv("FIREBASE_PROJECT_ID"),
+		FirebaseCreds:     os.Getenv("GOOGLE_APPLICATION_CREDENTIALS"),
 		FirebaseCredsJSON: os.Getenv("FIREBASE_CREDENTIALS_JSON"),
-		OpenAQKey:        os.Getenv("OPENAQ_API_KEY"),
+		OpenAQKey:         os.Getenv("OPENAQ_API_KEY"),
 
 		CountriesBaseURL: getEnv("COUNTRIES_API_URL", "http://129.241.150.113:8080/v3.1"),
 		MeteoBaseURL:     getEnv("METEO_API_URL", "https://api.open-meteo.com/v1"),
@@ -40,10 +43,13 @@ func Load() (*Config, error) {
 		NominatimBaseURL: getEnv("NOMINATIM_API_URL", "https://nominatim.openstreetmap.org"),
 		CurrencyBaseURL:  getEnv("CURRENCY_API_URL", "http://129.241.150.113:9090/currency"),
 
+		// CachePurgeHours defaults to 1; set to 0 to disable background purging.
 		CachePurgeHours: getEnvInt("CACHE_PURGE_INTERVAL_HOURS", 1),
-		CacheTTLHours:   getEnvInt("CACHE_TTL_HOURS", 0),
+		// CacheTTLHours defaults to 0, which tells each client to use its own built-in TTL.
+		CacheTTLHours: getEnvInt("CACHE_TTL_HOURS", 0),
 	}
 
+	// These two values have no safe default and must be explicitly configured.
 	if cfg.FirebaseProject == "" {
 		return nil, fmt.Errorf("FIREBASE_PROJECT_ID is required")
 	}

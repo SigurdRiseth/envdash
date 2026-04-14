@@ -48,6 +48,7 @@ func (r *notificationRepo) Create(ctx context.Context, n *models.Notification) e
 func (r *notificationRepo) Get(ctx context.Context, id string) (*models.Notification, error) {
 	doc, err := r.fs.Collection(r.collection).Doc(id).Get(ctx)
 	if err != nil {
+		// Translate the gRPC NotFound code into our sentinel error.
 		if status.Code(err) == codes.NotFound {
 			return nil, ErrNotFound
 		}
@@ -68,6 +69,7 @@ func (r *notificationRepo) List(ctx context.Context) ([]models.Notification, err
 		return nil, fmt.Errorf("list notifications: %w", err)
 	}
 
+	// Pre-allocate to avoid repeated slice growth during decode.
 	ns := make([]models.Notification, 0, len(docs))
 	for _, doc := range docs {
 		var n models.Notification
@@ -81,6 +83,7 @@ func (r *notificationRepo) List(ctx context.Context) ([]models.Notification, err
 
 // Delete removes a notification by ID. Returns ErrNotFound if no document exists.
 func (r *notificationRepo) Delete(ctx context.Context, id string) error {
+	// Read first because Firestore's Delete() silently succeeds on missing documents.
 	_, err := r.fs.Collection(r.collection).Doc(id).Get(ctx)
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
@@ -107,9 +110,11 @@ func (r *notificationRepo) ListMatching(ctx context.Context, isoCode, event stri
 
 	var matched []models.Notification
 	for _, n := range all {
+		// Skip notifications that listen for a different lifecycle event.
 		if n.Event != event {
 			continue
 		}
+		// An empty Country acts as a wildcard — it matches every ISO code.
 		if n.Country == "" || n.Country == isoCode {
 			matched = append(matched, n)
 		}

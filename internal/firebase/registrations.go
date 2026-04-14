@@ -49,6 +49,8 @@ func (r *registrationRepo) Create(ctx context.Context, reg *models.Registration)
 func (r *registrationRepo) Get(ctx context.Context, id string) (*models.Registration, error) {
 	doc, err := r.fs.Collection(r.collection).Doc(id).Get(ctx)
 	if err != nil {
+		// Translate the gRPC NotFound code into our sentinel error so callers
+		// don't need to import gRPC packages to detect missing documents.
 		if status.Code(err) == codes.NotFound {
 			return nil, ErrNotFound
 		}
@@ -69,6 +71,7 @@ func (r *registrationRepo) List(ctx context.Context) ([]models.Registration, err
 		return nil, fmt.Errorf("list registrations: %w", err)
 	}
 
+	// Pre-allocate the slice to the known document count to avoid reallocations.
 	regs := make([]models.Registration, 0, len(docs))
 	for _, doc := range docs {
 		var reg models.Registration
@@ -91,7 +94,8 @@ func (r *registrationRepo) Update(ctx context.Context, reg *models.Registration)
 
 // Delete removes a registration by ID. Returns ErrNotFound if no document exists.
 func (r *registrationRepo) Delete(ctx context.Context, id string) error {
-	// Check existence first so callers can distinguish 404 from other errors.
+	// Firestore's Delete() succeeds silently even if the document doesn't exist,
+	// so we must read first to return a meaningful ErrNotFound to the caller.
 	_, err := r.fs.Collection(r.collection).Doc(id).Get(ctx)
 	if err != nil {
 		if status.Code(err) == codes.NotFound {

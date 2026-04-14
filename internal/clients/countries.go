@@ -62,10 +62,12 @@ func (c *CountriesClient) GetByISO(ctx context.Context, iso string) (*CountryDat
 	iso = strings.ToUpper(iso)
 	key := "countries:" + iso
 
+	// Return the cached value if it hasn't expired yet.
 	if data, ok := cacheGet[CountryData](ctx, c.cache, key); ok {
 		return &data, nil
 	}
 
+	// Request only the fields we actually use to keep the response payload small.
 	url := fmt.Sprintf("%s/alpha/%s?fields=name,capital,latlng,population,area,currencies", c.baseURL, iso)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
@@ -77,19 +79,23 @@ func (c *CountriesClient) GetByISO(ctx context.Context, iso string) (*CountryDat
 		return nil, err
 	}
 
+	// Map the API response to our domain type, handling optional/variadic fields.
 	data := &CountryData{
 		Name:       raw.Name.Common,
 		Population: raw.Population,
 		Area:       raw.Area,
 	}
 
+	// Capital is returned as a slice (some territories have multiple), take the first.
 	if len(raw.Capital) > 0 {
 		data.Capital = raw.Capital[0]
 	}
+	// latlng is [latitude, longitude]; skip if missing (some territories lack coordinates).
 	if len(raw.Latlng) >= 2 {
 		data.Latitude = raw.Latlng[0]
 		data.Longitude = raw.Latlng[1]
 	}
+	// Currencies is a map keyed by ISO 4217 code; virtually all countries have exactly one.
 	for code := range raw.Currencies {
 		data.BaseCurrency = code
 		break // use first (only) currency

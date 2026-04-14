@@ -42,6 +42,10 @@ func loggingMiddleware(next http.Handler) http.Handler {
 func apiKeyMiddleware(authSvc services.AuthService, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
+
+		// Allow requests to exempt routes through without any key check.
+		// We append "/" before the prefix check so that exact matches (e.g.
+		// "/envdash/v1/status") pass the same way as "/envdash/v1/status/".
 		for _, prefix := range apiKeyExemptPrefixes {
 			if strings.HasPrefix(path+"/", prefix) {
 				next.ServeHTTP(w, r)
@@ -55,6 +59,7 @@ func apiKeyMiddleware(authSvc services.AuthService, next http.Handler) http.Hand
 			return
 		}
 
+		// Look up the key in Firestore; a missing key returns false without error.
 		valid, err := authSvc.Validate(r.Context(), key)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "failed to validate API key")

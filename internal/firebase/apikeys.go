@@ -55,8 +55,8 @@ func (r *apiKeyRepo) Exists(ctx context.Context, key string) (bool, error) {
 
 // Delete removes an API key document. Returns ErrNotFound if no document exists.
 func (r *apiKeyRepo) Delete(ctx context.Context, key string) error {
-	// Firestore Delete() does NOT return NotFound even if the doc doesn't exist,
-	// so we must check existence first.
+	// Firestore's Delete() silently succeeds even when the document doesn't exist,
+	// so we read first to detect the missing-key case and return ErrNotFound.
 	_, err := r.fs.Collection(r.collection).Doc(key).Get(ctx)
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
@@ -65,7 +65,6 @@ func (r *apiKeyRepo) Delete(ctx context.Context, key string) error {
 		return fmt.Errorf("delete api key: %w", err)
 	}
 
-	// Now safe to delete
 	if _, err := r.fs.Collection(r.collection).Doc(key).Delete(ctx); err != nil {
 		return fmt.Errorf("delete api key: %w", err)
 	}

@@ -36,10 +36,13 @@ func (c *CurrencyClient) GetRates(ctx context.Context, base string, targets []st
 	base = strings.ToUpper(base)
 	key := "currency:" + base
 
+	// The full rate map for this base currency is cached so we can serve
+	// different target subsets from the same cached response.
 	if allRates, ok := cacheGet[map[string]float64](ctx, c.cache, key); ok {
 		return filterRates(allRates, targets), nil
 	}
 
+	// The API returns a JSON object mapping every target currency code to its rate.
 	reqURL := fmt.Sprintf("%s/%s", c.baseURL, base)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
 	if err != nil {
@@ -51,6 +54,8 @@ func (c *CurrencyClient) GetRates(ctx context.Context, base string, targets []st
 		return nil, err
 	}
 
+	// Cache the full map so future calls with the same base but different
+	// targets can be served without another HTTP round-trip.
 	cacheSet(ctx, c.cache, key, c.cacheTTL, allRates)
 
 	return filterRates(allRates, targets), nil

@@ -5,6 +5,7 @@ package models
 func AQILevel(pm25 float64) string {
 	switch {
 	case pm25 < 0:
+		// OpenAQ signals "no data available" with -1; propagate as Unknown.
 		return "Unknown"
 	case pm25 <= 12.0:
 		return "Good"
@@ -17,6 +18,7 @@ func AQILevel(pm25 float64) string {
 	case pm25 <= 250.4:
 		return "Very Unhealthy"
 	default:
+		// Any PM2.5 reading above 250.4 µg/m³ falls in the Hazardous category.
 		return "Hazardous"
 	}
 }

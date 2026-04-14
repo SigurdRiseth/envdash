@@ -65,7 +65,8 @@ func (c *OpenAQClient) GetAirQuality(ctx context.Context, lat, lon float64) (*Op
 		return &data, nil
 	}
 
-	// Query locations within 50 km and fetch latest measurements
+	// Search for monitoring stations within 25 km of the given coordinates.
+	// Up to 100 locations are returned; more stations improve the average accuracy.
 	params := url.Values{}
 	params.Set("coordinates", fmt.Sprintf("%f,%f", lat, lon))
 	params.Set("radius", "25000")
@@ -83,11 +84,13 @@ func (c *OpenAQClient) GetAirQuality(ctx context.Context, lat, lon float64) (*Op
 		return nil, err
 	}
 
+	// No stations found near the coordinates — report all values as unknown.
 	if len(raw.Results) == 0 {
 		return &OpenAQData{PM25: -1, PM10: -1, Level: "Unknown"}, nil
 	}
 
-	// Aggregate latest measurements from all returned locations
+	// Collect the latest PM2.5 and PM10 readings from every returned station.
+	// Each station may contribute zero or more values of each type.
 	var pm25Vals, pm10Vals []float64
 	for _, loc := range raw.Results {
 		for _, m := range loc.LatestMeasurements {
@@ -100,6 +103,7 @@ func (c *OpenAQClient) GetAirQuality(ctx context.Context, lat, lon float64) (*Op
 		}
 	}
 
+	// Default to -1 (unknown) for each pollutant; overwrite only when we have data.
 	data := &OpenAQData{
 		PM25:  -1,
 		PM10:  -1,
@@ -107,6 +111,7 @@ func (c *OpenAQClient) GetAirQuality(ctx context.Context, lat, lon float64) (*Op
 	}
 	if len(pm25Vals) > 0 {
 		data.PM25 = mean(pm25Vals)
+		// Derive the EPA AQI category label from the averaged PM2.5 value.
 		data.Level = models.AQILevel(data.PM25)
 	}
 	if len(pm10Vals) > 0 {

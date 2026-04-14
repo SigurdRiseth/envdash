@@ -50,6 +50,8 @@ func (d *Dispatcher) send(payload models.WebhookPayload, url string) error {
 		return err
 	}
 
+	// Each delivery attempt gets its own independent timeout so a slow consumer
+	// cannot block the retry of a different webhook.
 	ctx, cancel := context.WithTimeout(context.Background(), dispatchTimeout)
 	defer cancel()
 
@@ -65,6 +67,7 @@ func (d *Dispatcher) send(payload models.WebhookPayload, url string) error {
 	}
 	defer resp.Body.Close()
 
+	// Any non-2xx response is treated as a delivery failure and triggers a retry.
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return &DeliveryError{StatusCode: resp.StatusCode, URL: url}
 	}

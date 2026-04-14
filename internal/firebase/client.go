@@ -19,9 +19,11 @@ import (
 func NewFirestoreClient(ctx context.Context, cfg *config.Config) (*firestore.Client, error) {
 	var opts []option.ClientOption
 
+	// Determine the credential source. Inline JSON takes precedence over a
+	// file path, which takes precedence over Application Default Credentials.
 	switch {
 	case cfg.FirebaseCredsJSON != "":
-		// Inline JSON credentials (useful in Docker/CI without mounted files)
+		// Validate the JSON before handing it to the SDK so errors are caught early.
 		var raw json.RawMessage
 		if err := json.Unmarshal([]byte(cfg.FirebaseCredsJSON), &raw); err != nil {
 			return nil, fmt.Errorf("invalid FIREBASE_CREDENTIALS_JSON: %w", err)
@@ -29,14 +31,14 @@ func NewFirestoreClient(ctx context.Context, cfg *config.Config) (*firestore.Cli
 		opts = append(opts, option.WithCredentialsJSON([]byte(cfg.FirebaseCredsJSON)))
 
 	case cfg.FirebaseCreds != "":
-		// File path set via GOOGLE_APPLICATION_CREDENTIALS
+		// Verify the file exists before passing it to the SDK to surface a clear error.
 		if _, err := os.Stat(cfg.FirebaseCreds); err != nil {
 			return nil, fmt.Errorf("credentials file not found: %s", cfg.FirebaseCreds)
 		}
 		opts = append(opts, option.WithCredentialsFile(cfg.FirebaseCreds))
 
 	default:
-		// Fall back to Application Default Credentials (e.g. gcloud auth)
+		// Fall back to Application Default Credentials (e.g. gcloud auth application-default login).
 	}
 
 	app, err := firebase.NewApp(ctx, &firebase.Config{

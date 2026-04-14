@@ -67,17 +67,21 @@ func NewNominatimClient(baseURL string, http HTTPDoer, cache firebase.CacheRepos
 func (c *NominatimClient) GetCoordinates(ctx context.Context, iso string) (*NominatimData, error) {
 	key := "nominatim:" + iso
 
+	// Geocoding results are stable, so a 24-hour cache avoids hitting the rate limit.
 	if data, ok := cacheGet[NominatimData](ctx, c.cache, key); ok {
 		return &data, nil
 	}
 
-	// Acquire rate-limit token
+	// Block until the throttle allows a new request, or until the context is cancelled.
+	// The background ticker refills the channel at 1 token/second.
 	select {
 	case <-c.throttle:
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}
 
+	// Request only the top result for the country; format=json is required
+	// because Nominatim defaults to XML.
 	params := url.Values{}
 	params.Set("country", iso)
 	params.Set("format", "json")
@@ -88,6 +92,7 @@ func (c *NominatimClient) GetCoordinates(ctx context.Context, iso string) (*Nomi
 	if err != nil {
 		return nil, fmt.Errorf("nominatim: build request: %w", err)
 	}
+	// Nominatim's usage policy requires a descriptive User-Agent on every request.
 	req.Header.Set("User-Agent", nominatimUserAgent)
 
 	var results []nominatimResult
@@ -99,6 +104,7 @@ func (c *NominatimClient) GetCoordinates(ctx context.Context, iso string) (*Nomi
 		return nil, fmt.Errorf("nominatim: no results for %q", iso)
 	}
 
+	// The API returns coordinates as strings, so we need to parse them to float64.
 	lat, err := strconv.ParseFloat(results[0].Lat, 64)
 	if err != nil {
 		return nil, fmt.Errorf("nominatim: parse latitude: %w", err)

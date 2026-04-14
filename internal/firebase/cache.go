@@ -40,6 +40,7 @@ func NewCacheRepo(fs *firestore.Client) CacheRepository {
 // Get retrieves a cached value by key. Returns (data, true, nil) on hit,
 // (nil, false, nil) on miss or expiry, and (nil, false, err) on error.
 func (r *cacheRepo) Get(ctx context.Context, key string) ([]byte, bool, error) {
+	// '/' is a path separator in Firestore document IDs, so the key is sanitised first.
 	doc, err := r.fs.Collection(r.collection).Doc(sanitiseKey(key)).Get(ctx)
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
@@ -53,8 +54,9 @@ func (r *cacheRepo) Get(ctx context.Context, key string) ([]byte, bool, error) {
 		return nil, false, fmt.Errorf("cache decode %q: %w", key, err)
 	}
 
+	// Check expiry in the application layer; expired entries are treated as a miss.
+	// Physical deletion is deferred to the background Purge job.
 	if time.Now().After(entry.ExpiresAt) {
-		// Expired — treat as miss; let Purge handle cleanup
 		return nil, false, nil
 	}
 
@@ -76,6 +78,7 @@ func (r *cacheRepo) Set(ctx context.Context, key string, data []byte, ttl time.D
 
 // Purge deletes all expired cache entries. Returns the number of deleted entries.
 func (r *cacheRepo) Purge(ctx context.Context) (int, error) {
+	// Query for all documents whose TTL has already elapsed.
 	docs, err := r.fs.Collection(r.collection).
 		Where("expiresAt", "<", time.Now()).
 		Documents(ctx).GetAll()
@@ -83,11 +86,14 @@ func (r *cacheRepo) Purge(ctx context.Context) (int, error) {
 		return 0, fmt.Errorf("cache purge query: %w", err)
 	}
 
+	// Batch all deletes into a single Firestore write to minimise round-trips.
 	batch := r.fs.Batch()
 	for _, doc := range docs {
 		batch.Delete(doc.Ref)
 	}
 
+	// Commit only if there is something to delete; an empty batch is a no-op but
+	// skipping it avoids an unnecessary RPC.
 	if len(docs) > 0 {
 		if _, err := batch.Commit(ctx); err != nil {
 			return 0, fmt.Errorf("cache purge commit: %w", err)

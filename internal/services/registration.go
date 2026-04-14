@@ -35,11 +35,17 @@ func NewRegistrationService(
 	return &registrationService{regs: regs, notifs: notifs, dispatcher: dispatcher}
 }
 
+// Create validates the request, generates a new registration with a random ID,
+// persists it to Firestore, and fires REGISTER lifecycle webhooks.
 func (s *registrationService) Create(ctx context.Context, req models.RegistrationRequest) (*models.Registration, error) {
+	// Reject the request early if required fields are missing.
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
 
+	// Build the persisted registration. The ID and timestamp are server-generated
+	// so clients cannot influence them. ISOCode is normalised to upper-case so
+	// later lookups are case-insensitive.
 	reg := &models.Registration{
 		ID:         generateID(),
 		Country:    req.Country,
@@ -52,28 +58,38 @@ func (s *registrationService) Create(ctx context.Context, req models.Registratio
 		return nil, fmt.Errorf("create registration: %w", err)
 	}
 
+	// Notify any webhooks subscribed to the REGISTER lifecycle event.
 	s.fireLifecycle(ctx, reg.ISOCode, models.EventRegister)
 	return reg, nil
 }
 
+// Get returns a single registration by ID. Returns firebase.ErrNotFound if no
+// registration with the given ID exists.
 func (s *registrationService) Get(ctx context.Context, id string) (*models.Registration, error) {
 	return s.regs.Get(ctx, id)
 }
 
+// List returns all persisted dashboard registrations.
 func (s *registrationService) List(ctx context.Context) ([]models.Registration, error) {
 	return s.regs.List(ctx)
 }
 
+// Update fully replaces an existing registration (PUT semantics). All fields
+// in req overwrite the stored values. Returns ErrNotFound if the ID doesn't exist.
+// Fires CHANGE lifecycle webhooks on success.
 func (s *registrationService) Update(ctx context.Context, id string, req models.RegistrationRequest) (*models.Registration, error) {
+	// Validate before touching the database to avoid a partial-update scenario.
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
 
+	// Fetch the existing document; returns ErrNotFound if it doesn't exist.
 	existing, err := s.regs.Get(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 
+	// Overwrite all mutable fields (PUT semantics — full replacement).
 	existing.Country = req.Country
 	existing.ISOCode = strings.ToUpper(req.ISOCode)
 	existing.Features = req.Features
@@ -83,6 +99,7 @@ func (s *registrationService) Update(ctx context.Context, id string, req models.
 		return nil, fmt.Errorf("update registration: %w", err)
 	}
 
+	// Notify webhooks subscribed to the CHANGE lifecycle event.
 	s.fireLifecycle(ctx, existing.ISOCode, models.EventChange)
 	return existing, nil
 }
@@ -91,17 +108,21 @@ func (s *registrationService) Update(ctx context.Context, id string, req models.
 // changed. Recognised top-level keys: "country", "isoCode", "features".
 // For "features", only the sub-fields present in the nested map are changed.
 func (s *registrationService) Patch(ctx context.Context, id string, patch map[string]interface{}) (*models.Registration, error) {
+	// Load the current state so we can merge only the provided fields into it.
 	existing, err := s.regs.Get(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 
+	// Apply top-level scalar fields if present in the patch map.
 	if v, ok := patch["country"].(string); ok {
 		existing.Country = v
 	}
 	if v, ok := patch["isoCode"].(string); ok {
 		existing.ISOCode = strings.ToUpper(v)
 	}
+
+	// Recurse into "features" if present, updating only the supplied sub-fields.
 	if fm, ok := patch["features"].(map[string]interface{}); ok {
 		applyFeaturePatch(&existing.Features, fm)
 	}
@@ -111,11 +132,17 @@ func (s *registrationService) Patch(ctx context.Context, id string, patch map[st
 		return nil, fmt.Errorf("patch registration: %w", err)
 	}
 
+	// Notify webhooks subscribed to the CHANGE lifecycle event.
 	s.fireLifecycle(ctx, existing.ISOCode, models.EventChange)
 	return existing, nil
 }
 
+// Delete permanently removes a registration by ID. Returns ErrNotFound if the
+// ID doesn't exist. Fires DELETE lifecycle webhooks on success.
 func (s *registrationService) Delete(ctx context.Context, id string) error {
+	// Fetch the registration first so we have the ISO code available for
+	// webhook dispatch after deletion, and so we can return a proper 404
+	// before attempting the delete.
 	reg, err := s.regs.Get(ctx, id)
 	if err != nil {
 		return err
@@ -125,6 +152,7 @@ func (s *registrationService) Delete(ctx context.Context, id string) error {
 		return err
 	}
 
+	// Notify webhooks subscribed to the DELETE lifecycle event.
 	s.fireLifecycle(ctx, reg.ISOCode, models.EventDelete)
 	return nil
 }
@@ -178,6 +206,9 @@ func applyFeaturePatch(f *models.Features, m map[string]interface{}) {
 		f.Area = v
 	}
 	if v, ok := m["targetCurrencies"].([]interface{}); ok {
+		// JSON arrays decode as []interface{}, so each element must be type-asserted
+		// to string. Non-string elements are silently skipped. All codes are
+		// upper-cased to match the currency API's expected format.
 		currencies := make([]string, 0, len(v))
 		for _, c := range v {
 			if s, ok := c.(string); ok {

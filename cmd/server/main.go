@@ -86,7 +86,8 @@ func main() {
 
 // runCachePurge runs Purge on the cache repository every intervalHours hours.
 func runCachePurge(ctx context.Context, cache firebase.CacheRepository, intervalHours int) {
-	// Purge on startup
+	// Run an immediate purge at startup to clear any entries left over from a
+	// previous run that was shut down before its scheduled purge fired.
 	if n, err := cache.Purge(ctx); err != nil {
 		log.Printf("cache purge (startup): %v", err)
 	} else if n > 0 {
@@ -98,6 +99,7 @@ func runCachePurge(ctx context.Context, cache firebase.CacheRepository, interval
 	for {
 		select {
 		case <-ctx.Done():
+			// Server is shutting down; stop the purge loop cleanly.
 			return
 		case <-ticker.C:
 			if n, err := cache.Purge(ctx); err != nil {

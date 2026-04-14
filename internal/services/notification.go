@@ -29,10 +29,13 @@ func NewNotificationService(notifs firebase.NotificationRepository) Notification
 }
 
 func (s *notificationService) Create(ctx context.Context, req models.NotificationRequest) (*models.Notification, error) {
+	// Reject invalid requests (missing URL, unknown event, missing threshold for THRESHOLD events).
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
 
+	// Build the notification document. Country is upper-cased so ListMatching
+	// comparisons are case-insensitive; an empty Country matches all countries.
 	n := &models.Notification{
 		ID:        generateID(),
 		URL:       req.URL,
@@ -47,14 +50,19 @@ func (s *notificationService) Create(ctx context.Context, req models.Notificatio
 	return n, nil
 }
 
+// Get returns a single notification by ID. Returns firebase.ErrNotFound if no
+// notification with the given ID exists.
 func (s *notificationService) Get(ctx context.Context, id string) (*models.Notification, error) {
 	return s.notifs.Get(ctx, id)
 }
 
+// List returns all persisted webhook notifications.
 func (s *notificationService) List(ctx context.Context) ([]models.Notification, error) {
 	return s.notifs.List(ctx)
 }
 
+// Delete permanently removes a notification by ID. Returns firebase.ErrNotFound
+// if no notification with the given ID exists.
 func (s *notificationService) Delete(ctx context.Context, id string) error {
 	return s.notifs.Delete(ctx, id)
 }
@@ -65,11 +73,13 @@ func (s *notificationService) Delete(ctx context.Context, id string) error {
 // ignored. If the resulting event is THRESHOLD but no threshold is set,
 // validation fails with a *models.ValidationError.
 func (s *notificationService) Patch(ctx context.Context, id string, patch map[string]interface{}) (*models.Notification, error) {
+	// Load the current state; only the fields present in patch will be changed.
 	existing, err := s.notifs.Get(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 
+	// Validate and apply the URL if provided.
 	if v, ok := patch["url"].(string); ok {
 		if _, err := url.ParseRequestURI(v); err != nil {
 			return nil, &models.ValidationError{Message: "invalid url"}
@@ -79,12 +89,16 @@ func (s *notificationService) Patch(ctx context.Context, id string, patch map[st
 	if v, ok := patch["country"].(string); ok {
 		existing.Country = strings.ToUpper(v)
 	}
+
+	// Validate the event string against the allow-list before applying it.
 	if v, ok := patch["event"].(string); ok {
 		if !models.ValidEvents[v] {
 			return nil, &models.ValidationError{Message: fmt.Sprintf("invalid event %q", v)}
 		}
 		existing.Event = v
 	}
+
+	// "threshold" can be set to null (clear it) or replaced with a new threshold object.
 	if v, ok := patch["threshold"]; ok {
 		if v == nil {
 			existing.Threshold = nil
@@ -97,10 +111,12 @@ func (s *notificationService) Patch(ctx context.Context, id string, patch map[st
 		}
 	}
 
+	// Post-patch consistency check: THRESHOLD events always require a threshold condition.
 	if existing.Event == models.EventThreshold && existing.Threshold == nil {
 		return nil, &models.ValidationError{Message: "'threshold' is required for THRESHOLD event"}
 	}
 
+	// Use Create (Set) to overwrite the existing Firestore document in-place.
 	if err := s.notifs.Create(ctx, existing); err != nil { // Set (overwrite)
 		return nil, fmt.Errorf("patch notification: %w", err)
 	}
@@ -113,6 +129,8 @@ func (s *notificationService) Patch(ctx context.Context, id string, patch map[st
 // ValidThresholdOperators; a *models.ValidationError is returned on failure.
 // Value defaults to 0 if the key is absent or not a float64.
 func parseThresholdMap(m map[string]interface{}) (*models.Threshold, error) {
+	// Extract each field with individual type assertions; absent or wrongly-typed
+	// keys leave the field at its zero value (empty string / 0.0).
 	t := &models.Threshold{}
 	if v, ok := m["field"].(string); ok {
 		t.Field = v
@@ -121,8 +139,11 @@ func parseThresholdMap(m map[string]interface{}) (*models.Threshold, error) {
 		t.Operator = v
 	}
 	if v, ok := m["value"].(float64); ok {
+		// JSON numbers decode as float64 by default in Go.
 		t.Value = v
 	}
+
+	// Validate that the extracted values are within the accepted sets.
 	if !models.ValidThresholdFields[t.Field] {
 		return nil, &models.ValidationError{Message: fmt.Sprintf("invalid threshold field %q", t.Field)}
 	}
