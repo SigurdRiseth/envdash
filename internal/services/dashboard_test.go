@@ -494,10 +494,8 @@ func TestDashboardService_Get_ThresholdWebhookFires(t *testing.T) {
 		URL:     hookSrv.URL,
 		Country: "NO",
 		Event:   models.EventThreshold,
-		Threshold: &models.Threshold{
-			Field:    "pm25",
-			Operator: ">",
-			Value:    5.0,
+		Thresholds: []models.Threshold{
+			{Field: "pm25", Operator: ">", Value: 5.0},
 		},
 	}
 

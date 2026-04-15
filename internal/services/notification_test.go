@@ -96,10 +96,8 @@ func TestNotificationService_Create_InvalidThresholdField(t *testing.T) {
 	_, err := svc.Create(context.Background(), models.NotificationRequest{
 		URL:   "https://example.com/hook",
 		Event: models.EventThreshold,
-		Threshold: &models.Threshold{
-			Field:    "humidity",
-			Operator: ">",
-			Value:    50,
+		Thresholds: []models.Threshold{
+			{Field: "humidity", Operator: ">", Value: 50},
 		},
 	})
 	assertValidationError(t, err, "field")
@@ -110,10 +108,8 @@ func TestNotificationService_Create_InvalidThresholdOperator(t *testing.T) {
 	_, err := svc.Create(context.Background(), models.NotificationRequest{
 		URL:   "https://example.com/hook",
 		Event: models.EventThreshold,
-		Threshold: &models.Threshold{
-			Field:    "pm25",
-			Operator: "!=",
-			Value:    50,
+		Thresholds: []models.Threshold{
+			{Field: "pm25", Operator: "!=", Value: 50},
 		},
 	})
 	assertValidationError(t, err, "operator")
@@ -126,16 +122,32 @@ func TestNotificationService_Create_ValidThreshold(t *testing.T) {
 			_, err := svc.Create(context.Background(), models.NotificationRequest{
 				URL:   "https://example.com/hook",
 				Event: models.EventThreshold,
-				Threshold: &models.Threshold{
-					Field:    "pm25",
-					Operator: op,
-					Value:    35.4,
+				Thresholds: []models.Threshold{
+					{Field: "pm25", Operator: op, Value: 35.4},
 				},
 			})
 			if err != nil {
 				t.Errorf("op=%q: unexpected error: %v", op, err)
 			}
 		})
+	}
+}
+
+func TestNotificationService_Create_CompoundThreshold(t *testing.T) {
+	svc := newTestNotifService()
+	notif, err := svc.Create(context.Background(), models.NotificationRequest{
+		URL:   "https://example.com/hook",
+		Event: models.EventThreshold,
+		Thresholds: []models.Threshold{
+			{Field: "temperature", Operator: ">", Value: 0},
+			{Field: "temperature", Operator: "<=", Value: 5},
+		},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(notif.Thresholds) != 2 {
+		t.Errorf("expected 2 threshold conditions, got %d", len(notif.Thresholds))
 	}
 }
 
@@ -232,17 +244,15 @@ func TestNotificationService_Patch_EventToThresholdRequiresThreshold(t *testing.
 func TestNotificationService_Patch_AddThresholdThenChangeToThreshold(t *testing.T) {
 	svc := newTestNotifService()
 	// Start with a lifecycle notification, patch in both event and threshold together
-	n, _ := svc.Create(context.Background(), models.NotificationRequest{
+	notif, _ := svc.Create(context.Background(), models.NotificationRequest{
 		URL:   "https://example.com/hook",
 		Event: models.EventRegister,
 	})
 
-	patched, err := svc.Patch(context.Background(), n.ID, map[string]interface{}{
+	patched, err := svc.Patch(context.Background(), notif.ID, map[string]interface{}{
 		"event": models.EventThreshold,
-		"threshold": map[string]interface{}{
-			"field":    "pm25",
-			"operator": ">",
-			"value":    float64(35),
+		"threshold": []interface{}{
+			map[string]interface{}{"field": "pm25", "operator": ">", "value": float64(35)},
 		},
 	})
 	if err != nil {
@@ -251,8 +261,8 @@ func TestNotificationService_Patch_AddThresholdThenChangeToThreshold(t *testing.
 	if patched.Event != models.EventThreshold {
 		t.Errorf("Event = %q, want THRESHOLD", patched.Event)
 	}
-	if patched.Threshold == nil {
-		t.Error("Threshold should be set after patch")
+	if len(patched.Thresholds) == 0 {
+		t.Error("Thresholds should be set after patch")
 	}
 }
 

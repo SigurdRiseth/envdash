@@ -29,25 +29,25 @@ func NewNotificationService(notifs firebase.NotificationRepository) Notification
 }
 
 func (s *notificationService) Create(ctx context.Context, req models.NotificationRequest) (*models.Notification, error) {
-	// Reject invalid requests (missing URL, unknown event, missing threshold for THRESHOLD events).
+	// Reject invalid requests (missing URL, unknown event, missing/invalid threshold conditions).
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
 
 	// Build the notification document. Country is upper-cased so ListMatching
 	// comparisons are case-insensitive; an empty Country matches all countries.
-	n := &models.Notification{
-		ID:        generateID(),
-		URL:       req.URL,
-		Country:   strings.ToUpper(req.Country),
-		Event:     req.Event,
-		Threshold: req.Threshold,
+	notif := &models.Notification{
+		ID:         generateID(),
+		URL:        req.URL,
+		Country:    strings.ToUpper(req.Country),
+		Event:      req.Event,
+		Thresholds: req.Thresholds,
 	}
 
-	if err := s.notifs.Create(ctx, n); err != nil {
+	if err := s.notifs.Create(ctx, notif); err != nil {
 		return nil, fmt.Errorf("create notification: %w", err)
 	}
-	return n, nil
+	return notif, nil
 }
 
 // Get returns a single notification by ID. Returns firebase.ErrNotFound if no
@@ -70,8 +70,8 @@ func (s *notificationService) Delete(ctx context.Context, id string) error {
 // Patch applies a partial update to a notification. Only the keys present in
 // patch are changed; all other fields remain as stored. Recognised keys are
 // "url", "country", "event", and "threshold". Unrecognised keys are silently
-// ignored. If the resulting event is THRESHOLD but no threshold is set,
-// validation fails with a *models.ValidationError.
+// ignored. If the resulting event is THRESHOLD but no threshold conditions are
+// set, validation fails with a *models.ValidationError.
 func (s *notificationService) Patch(ctx context.Context, id string, patch map[string]interface{}) (*models.Notification, error) {
 	// Load the current state; only the fields present in patch will be changed.
 	existing, err := s.notifs.Get(ctx, id)
@@ -80,39 +80,40 @@ func (s *notificationService) Patch(ctx context.Context, id string, patch map[st
 	}
 
 	// Validate and apply the URL if provided.
-	if v, ok := patch["url"].(string); ok {
-		if _, err := url.ParseRequestURI(v); err != nil {
+	if newURL, ok := patch["url"].(string); ok {
+		if _, err := url.ParseRequestURI(newURL); err != nil {
 			return nil, &models.ValidationError{Message: "invalid url"}
 		}
-		existing.URL = v
+		existing.URL = newURL
 	}
-	if v, ok := patch["country"].(string); ok {
-		existing.Country = strings.ToUpper(v)
+	if newCountry, ok := patch["country"].(string); ok {
+		existing.Country = strings.ToUpper(newCountry)
 	}
 
 	// Validate the event string against the allow-list before applying it.
-	if v, ok := patch["event"].(string); ok {
-		if !models.ValidEvents[v] {
-			return nil, &models.ValidationError{Message: fmt.Sprintf("invalid event %q", v)}
+	if newEvent, ok := patch["event"].(string); ok {
+		if !models.ValidEvents[newEvent] {
+			return nil, &models.ValidationError{Message: fmt.Sprintf("invalid event %q", newEvent)}
 		}
-		existing.Event = v
+		existing.Event = newEvent
 	}
 
-	// "threshold" can be set to null (clear it) or replaced with a new threshold object.
-	if v, ok := patch["threshold"]; ok {
-		if v == nil {
-			existing.Threshold = nil
-		} else if tm, ok := v.(map[string]interface{}); ok {
-			t, err := parseThresholdMap(tm)
+	// "threshold" can be set to null (clear all conditions) or replaced with a
+	// new list of condition objects.
+	if rawThreshold, ok := patch["threshold"]; ok {
+		if rawThreshold == nil {
+			existing.Thresholds = nil
+		} else if rawList, ok := rawThreshold.([]interface{}); ok {
+			thresholds, err := parseThresholdList(rawList)
 			if err != nil {
 				return nil, err
 			}
-			existing.Threshold = t
+			existing.Thresholds = thresholds
 		}
 	}
 
-	// Post-patch consistency check: THRESHOLD events always require a threshold condition.
-	if existing.Event == models.EventThreshold && existing.Threshold == nil {
+	// Post-patch consistency check: THRESHOLD events always require at least one condition.
+	if existing.Event == models.EventThreshold && len(existing.Thresholds) == 0 {
 		return nil, &models.ValidationError{Message: "'threshold' is required for THRESHOLD event"}
 	}
 
@@ -123,32 +124,52 @@ func (s *notificationService) Patch(ctx context.Context, id string, patch map[st
 	return existing, nil
 }
 
-// parseThresholdMap converts the raw map[string]interface{} representation of a
-// threshold (as decoded from a PATCH JSON body) into a *models.Threshold.
-// Field and Operator are validated against ValidThresholdFields and
-// ValidThresholdOperators; a *models.ValidationError is returned on failure.
-// Value defaults to 0 if the key is absent or not a float64.
-func parseThresholdMap(m map[string]interface{}) (*models.Threshold, error) {
-	// Extract each field with individual type assertions; absent or wrongly-typed
-	// keys leave the field at its zero value (empty string / 0.0).
-	t := &models.Threshold{}
-	if v, ok := m["field"].(string); ok {
-		t.Field = v
-	}
-	if v, ok := m["operator"].(string); ok {
-		t.Operator = v
-	}
-	if v, ok := m["value"].(float64); ok {
-		// JSON numbers decode as float64 by default in Go.
-		t.Value = v
+// parseThresholdList converts a raw JSON-decoded []interface{} into a validated
+// []models.Threshold. Each element must be a condition object with a valid field
+// and operator. Returns a *models.ValidationError if the list is empty or any
+// condition is invalid.
+func parseThresholdList(rawList []interface{}) ([]models.Threshold, error) {
+	if len(rawList) == 0 {
+		return nil, &models.ValidationError{Message: "'threshold' must contain at least one condition"}
 	}
 
-	// Validate that the extracted values are within the accepted sets.
-	if !models.ValidThresholdFields[t.Field] {
-		return nil, &models.ValidationError{Message: fmt.Sprintf("invalid threshold field %q", t.Field)}
+	thresholds := make([]models.Threshold, 0, len(rawList))
+	for _, item := range rawList {
+		conditionMap, ok := item.(map[string]interface{})
+		if !ok {
+			return nil, &models.ValidationError{Message: "each threshold condition must be an object with field, operator, and value"}
+		}
+		condition, err := parseThresholdCondition(conditionMap)
+		if err != nil {
+			return nil, err
+		}
+		thresholds = append(thresholds, *condition)
 	}
-	if !models.ValidThresholdOperators[t.Operator] {
-		return nil, &models.ValidationError{Message: fmt.Sprintf("invalid threshold operator %q", t.Operator)}
+	return thresholds, nil
+}
+
+// parseThresholdCondition converts the raw map[string]interface{} representation
+// of a single threshold condition (as decoded from a JSON body) into a
+// *models.Threshold. Field and Operator are validated against ValidThresholdFields
+// and ValidThresholdOperators. Value defaults to 0 if absent or not a float64.
+// JSON numbers always decode as float64 in Go's encoding/json.
+func parseThresholdCondition(raw map[string]interface{}) (*models.Threshold, error) {
+	condition := &models.Threshold{}
+	if field, ok := raw["field"].(string); ok {
+		condition.Field = field
 	}
-	return t, nil
+	if operator, ok := raw["operator"].(string); ok {
+		condition.Operator = operator
+	}
+	if value, ok := raw["value"].(float64); ok {
+		condition.Value = value
+	}
+
+	if !models.ValidThresholdFields[condition.Field] {
+		return nil, &models.ValidationError{Message: fmt.Sprintf("invalid threshold field %q; must be pm25, pm10, temperature, or precipitation", condition.Field)}
+	}
+	if !models.ValidThresholdOperators[condition.Operator] {
+		return nil, &models.ValidationError{Message: fmt.Sprintf("invalid threshold operator %q; must be >, <, >=, or <=", condition.Operator)}
+	}
+	return condition, nil
 }

@@ -95,10 +95,9 @@ func TestDispatcher_Dispatch_ThresholdPayload(t *testing.T) {
 		Event:   models.EventThreshold,
 		Time:    "20250301 14:22",
 		Details: &models.ThresholdDetails{
-			Field:         "pm25",
-			Operator:      ">",
-			Threshold:     35.0,
-			MeasuredValue: 47.3,
+			Conditions: []models.ThresholdConditionDetail{
+				{Field: "pm25", Operator: ">", Threshold: 35.0, MeasuredValue: 47.3},
+			},
 		},
 	}
 	d.Dispatch(payload, srv.URL)
@@ -107,7 +106,7 @@ func TestDispatcher_Dispatch_ThresholdPayload(t *testing.T) {
 	if received.Details == nil {
 		t.Fatal("expected Details in threshold payload, got nil")
 	}
-	if received.Details.MeasuredValue != 47.3 {
-		t.Errorf("MeasuredValue = %f, want 47.3", received.Details.MeasuredValue)
+	if len(received.Details.Conditions) == 0 || received.Details.Conditions[0].MeasuredValue != 47.3 {
+		t.Errorf("MeasuredValue = %v, want 47.3", received.Details.Conditions)
 	}
 }

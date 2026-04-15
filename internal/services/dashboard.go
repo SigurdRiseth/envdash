@@ -206,10 +206,11 @@ func (s *dashboardService) fireInvoke(ctx context.Context, isoCode string) {
 }
 
 // fireThresholds evaluates all THRESHOLD webhooks for the given registration
-// against the live values in resp. For each webhook whose condition is met
-// (measuredValue <operator> threshold.Value), a payload is dispatched
-// asynchronously. Fields that are disabled in the registration or that failed
-// to populate (nil in resp) are skipped — the webhook will never fire for them.
+// against the live values in resp. A webhook fires only when every condition in
+// its Thresholds list is satisfied simultaneously. Fields that are disabled in
+// the registration or that failed to populate (nil in resp) are treated as
+// absent — any condition referencing an absent field prevents the webhook from
+// firing.
 func (s *dashboardService) fireThresholds(ctx context.Context, reg *models.Registration, resp *models.DashboardResponse) {
 	notifs, err := s.notifs.ListMatching(ctx, reg.ISOCode, models.EventThreshold)
 	if err != nil {
@@ -219,7 +220,8 @@ func (s *dashboardService) fireThresholds(ctx context.Context, reg *models.Regis
 		return
 	}
 
-	// Build a map of field → measured value from the response
+	// Build a map of field name → live measured value from the dashboard response.
+	// Only fields that are enabled and successfully populated are included.
 	measured := map[string]float64{}
 	if resp.Features.Temperature != nil {
 		measured["temperature"] = *resp.Features.Temperature
@@ -233,29 +235,50 @@ func (s *dashboardService) fireThresholds(ctx context.Context, reg *models.Regis
 	}
 
 	ts := timestamp()
-	for _, n := range notifs {
-		if n.Threshold == nil {
+	for _, notif := range notifs {
+		if len(notif.Thresholds) == 0 {
 			continue
 		}
-		val, ok := measured[n.Threshold.Field]
-		if !ok {
-			continue // field not enabled or not populated
+
+		// Evaluate every condition in the list. All must be satisfied for the
+		// webhook to fire. Build the detail slice as we go; if any condition
+		// fails we break early and skip the dispatch.
+		conditionDetails, allMet := evaluateThresholds(notif.Thresholds, measured)
+		if !allMet {
+			continue
 		}
-		if thresholdCrossed(val, n.Threshold.Operator, n.Threshold.Value) {
-			s.dispatcher.Dispatch(models.WebhookPayload{
-				ID:      n.ID,
-				Country: reg.ISOCode,
-				Event:   models.EventThreshold,
-				Time:    ts,
-				Details: &models.ThresholdDetails{
-					Field:         n.Threshold.Field,
-					Operator:      n.Threshold.Operator,
-					Threshold:     n.Threshold.Value,
-					MeasuredValue: val,
-				},
-			}, n.URL)
-		}
+
+		s.dispatcher.Dispatch(models.WebhookPayload{
+			ID:      notif.ID,
+			Country: reg.ISOCode,
+			Event:   models.EventThreshold,
+			Time:    ts,
+			Details: &models.ThresholdDetails{
+				Conditions: conditionDetails,
+			},
+		}, notif.URL)
 	}
+}
+
+// evaluateThresholds checks every condition in the list against the live measured
+// values. It returns the per-condition detail slice and a boolean indicating
+// whether all conditions were satisfied. If any condition references a field that
+// is absent from measured, or the comparison is not satisfied, allMet is false.
+func evaluateThresholds(conditions []models.Threshold, measured map[string]float64) (details []models.ThresholdConditionDetail, allMet bool) {
+	details = make([]models.ThresholdConditionDetail, 0, len(conditions))
+	for _, condition := range conditions {
+		measuredValue, fieldPresent := measured[condition.Field]
+		if !fieldPresent || !thresholdCrossed(measuredValue, condition.Operator, condition.Value) {
+			return nil, false
+		}
+		details = append(details, models.ThresholdConditionDetail{
+			Field:         condition.Field,
+			Operator:      condition.Operator,
+			Threshold:     condition.Value,
+			MeasuredValue: measuredValue,
+		})
+	}
+	return details, true
 }
 
 // thresholdCrossed reports whether measured satisfies the comparison

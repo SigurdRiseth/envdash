@@ -25,10 +25,8 @@ func TestNotificationRequest_Validate(t *testing.T) {
 				URL:     validURL,
 				Country: "NO",
 				Event:   "THRESHOLD",
-				Threshold: &models.Threshold{
-					Field:    "pm25",
-					Operator: ">",
-					Value:    50,
+				Thresholds: []models.Threshold{
+					{Field: "pm25", Operator: ">", Value: 50},
 				},
 			},
 			wantErr: false,
@@ -59,10 +57,8 @@ func TestNotificationRequest_Validate(t *testing.T) {
 				URL:     validURL,
 				Country: "NO",
 				Event:   "THRESHOLD",
-				Threshold: &models.Threshold{
-					Field:    "invalid_field",
-					Operator: ">",
-					Value:    50,
+				Thresholds: []models.Threshold{
+					{Field: "invalid_field", Operator: ">", Value: 50},
 				},
 			},
 			wantErr: true,
@@ -73,10 +69,8 @@ func TestNotificationRequest_Validate(t *testing.T) {
 				URL:     validURL,
 				Country: "NO",
 				Event:   "THRESHOLD",
-				Threshold: &models.Threshold{
-					Field:    "pm25",
-					Operator: "!=",
-					Value:    50,
+				Thresholds: []models.Threshold{
+					{Field: "pm25", Operator: "!=", Value: 50},
 				},
 			},
 			wantErr: true,
@@ -87,10 +81,8 @@ func TestNotificationRequest_Validate(t *testing.T) {
 				URL:     validURL,
 				Country: "NO",
 				Event:   "THRESHOLD",
-				Threshold: &models.Threshold{
-					Field:    "temperature",
-					Operator: ">=",
-					Value:    30,
+				Thresholds: []models.Threshold{
+					{Field: "temperature", Operator: ">=", Value: 30},
 				},
 			},
 			wantErr: false,
@@ -101,10 +93,21 @@ func TestNotificationRequest_Validate(t *testing.T) {
 				URL:     validURL,
 				Country: "NO",
 				Event:   "THRESHOLD",
-				Threshold: &models.Threshold{
-					Field:    "precipitation",
-					Operator: "<=",
-					Value:    5,
+				Thresholds: []models.Threshold{
+					{Field: "precipitation", Operator: "<=", Value: 5},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "valid_compound_threshold",
+			req: models.NotificationRequest{
+				URL:     validURL,
+				Country: "NO",
+				Event:   "THRESHOLD",
+				Thresholds: []models.Threshold{
+					{Field: "temperature", Operator: ">", Value: 0},
+					{Field: "temperature", Operator: "<=", Value: 5},
 				},
 			},
 			wantErr: false,

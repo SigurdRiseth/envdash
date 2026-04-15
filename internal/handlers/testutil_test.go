@@ -123,15 +123,15 @@ func (m *mockNotificationService) Create(_ context.Context, req models.Notificat
 	if !models.ValidEvents[req.Event] {
 		return nil, &models.ValidationError{Message: "invalid event"}
 	}
-	if req.Event == models.EventThreshold && req.Threshold == nil {
+	if req.Event == models.EventThreshold && len(req.Thresholds) == 0 {
 		return nil, &models.ValidationError{Message: "'threshold' is required for THRESHOLD event"}
 	}
 	n := &models.Notification{
-		ID:        "notif-id-001",
-		URL:       req.URL,
-		Country:   req.Country,
-		Event:     req.Event,
-		Threshold: req.Threshold,
+		ID:         "notif-id-001",
+		URL:        req.URL,
+		Country:    req.Country,
+		Event:      req.Event,
+		Thresholds: req.Thresholds,
 	}
 	m.notifs[n.ID] = n
 	return n, nil

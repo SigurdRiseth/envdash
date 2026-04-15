@@ -23,7 +23,12 @@ func TestNotifications_POST(t *testing.T) {
 		},
 		{
 			name:       "valid THRESHOLD webhook",
-			body:       `{"url":"http://example.com/hook","country":"NO","event":"THRESHOLD","threshold":{"field":"pm25","operator":">","value":35}}`,
+			body:       `{"url":"http://example.com/hook","country":"NO","event":"THRESHOLD","threshold":[{"field":"pm25","operator":">","value":35}]}`,
+			wantStatus: http.StatusCreated,
+		},
+		{
+			name:       "valid compound THRESHOLD webhook",
+			body:       `{"url":"http://example.com/hook","country":"NO","event":"THRESHOLD","threshold":[{"field":"temperature","operator":">","value":0},{"field":"temperature","operator":"<=","value":5}]}`,
 			wantStatus: http.StatusCreated,
 		},
 		{

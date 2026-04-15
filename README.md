@@ -21,6 +21,7 @@ REST web service for PROG2005 — Cloud Technologies. Aggregates live environmen
 - [Known Edge Cases & Limitations](#known-edge-cases--limitations)
 - [External APIs](#external-apis)
 - [Third-Party Libraries](#third-party-libraries)
+- [AI Assistance](#ai-assistance)
 - [Group Contributions](#group-contributions)
 
 ---
@@ -105,7 +106,7 @@ curl -X DELETE -H "X-API-Key: $KEY" "$BASE/registrations/$ID"
 | Threshold operators `>=` and `<=` | Done |
 | Automatic cache purging | Done |
 | API key authentication | Done |
-| Compound thresholds (single webhook with high + low bound) | Not implemented — register two separate THRESHOLD webhooks to achieve the same effect |
+| Compound thresholds (single webhook with high + low bound) | Done |
 
 ---
 
@@ -244,24 +245,39 @@ Notes:
 
 **POST /notifications/ — threshold event:**
 
+`threshold` is a list of conditions. All conditions must be satisfied simultaneously for the webhook to fire. Use multiple conditions on the same field to express a range.
+
 ```json
 {
   "url": "https://webhook.site/your-unique-id",
   "country": "NO",
   "event": "THRESHOLD",
-  "threshold": {
-    "field": "pm25",
-    "operator": ">",
-    "value": 35.0
-  }
+  "threshold": [
+    { "field": "pm25", "operator": ">", "value": 35.0 }
+  ]
+}
+```
+
+**Compound threshold — high/low bound on the same field:**
+
+```json
+{
+  "url": "https://webhook.site/your-unique-id",
+  "country": "NO",
+  "event": "THRESHOLD",
+  "threshold": [
+    { "field": "temperature", "operator": ">",  "value": 0 },
+    { "field": "temperature", "operator": "<=", "value": 5 }
+  ]
 }
 ```
 
 | Field | Values |
 |-------|--------|
 | `event` | `REGISTER`, `CHANGE`, `DELETE`, `INVOKE`, `THRESHOLD` |
-| `threshold.field` | `pm25`, `pm10`, `temperature`, `precipitation` |
-| `threshold.operator` | `>`, `<`, `>=`, `<=` |
+| `threshold` | Array of one or more condition objects; all must be satisfied |
+| `threshold[].field` | `pm25`, `pm10`, `temperature`, `precipitation` |
+| `threshold[].operator` | `>`, `<`, `>=`, `<=` |
 | `country` | ISO 3166-1 alpha-2. Leave empty to match all countries. |
 
 **Response 201 Created:**
@@ -290,10 +306,10 @@ Notes:
   "event": "THRESHOLD",
   "time": "20250301 14:22",
   "details": {
-    "field": "pm25",
-    "operator": ">",
-    "threshold": 35.0,
-    "measuredValue": 47.3
+    "conditions": [
+      { "field": "temperature", "operator": ">",  "threshold": 0, "measuredValue": 2.17 },
+      { "field": "temperature", "operator": "<=", "threshold": 5, "measuredValue": 2.17 }
+    ]
   }
 }
 ```
@@ -555,7 +571,7 @@ The classification is based on the PM2.5 mean across all OpenAQ monitoring stati
 - **Partial upstream failure:** If one external API is unavailable during dashboard retrieval, that field is omitted from the response while all other fields are still populated. The service never fails completely due to a single upstream outage.
 - **Wildcard webhooks:** A webhook registered with an empty `country` field matches lifecycle and threshold events for all countries.
 - **Nominatim rate limit:** Nominatim enforces 1 request/second per client. The client implements a token-bucket rate limiter. The 24-hour cache means this limit is rarely approached in practice.
-- **Compound thresholds not implemented:** The optional advanced task of registering a single webhook with both a high and low bound is not implemented. To achieve the same effect, register two separate THRESHOLD webhooks for the same country and field.
+- **Threshold condition list — no enforced upper bound:** The `threshold` array accepts any number of conditions. All conditions must be satisfied simultaneously. There is no server-enforced maximum, though in practice one or two conditions cover all useful cases (single bound or high/low range).
 - **Firebase required for all write operations:** The status endpoint remains available when Firebase is down, but all other endpoints (registrations, dashboards, notifications, auth) will return 500. The `/status/` response body will show `"notification_db": 503` in this case.
 
 ---
@@ -585,6 +601,20 @@ Only Go's standard library and the Firebase/Firestore Admin SDK are used:
 | `google.golang.org/api` | Google API support (indirect, required by Firebase) |
 
 No HTTP routers, ORMs, or web frameworks were added. The standard `net/http` package handles all routing and request handling.
+
+---
+
+## AI Assistance
+
+AI-based tools (specifically Claude Code by Anthropic) were used as a supporting aid during the development of this project.
+
+**Where and why:** AI assistance was most active during the initial architecture phase (e.g., structuring handler–service–repository layers and discussing interface boundaries) and during repetitive implementation work (test stubs, Firestore query patterns, handler boilerplate). It was also used when writing documentation throughout the code.
+
+**When it was useful:** Boilerplate-heavy tasks benefited most — generating table-driven test skeletons, writing mock implementations of service interfaces, and structuring Firestore read/write patterns. It saved significant time on work that follows a predictable pattern once the design is settled.
+
+**When it was not useful:** Anything involving the specific behaviour of external APIs required reading official documentation directly. The OpenAQ v3 radius hard limit (25,000 m), Nominatim's `User-Agent` requirement and rate limit, and the exact Firestore Admin SDK transaction API were all cases where AI-generated suggestions were either wrong or outdated and had to be corrected against the real documentation.
+
+**How we handled it:** All AI-generated code was read, understood, tested, and reviewed before merging. Nothing was merged blind. The architecture decisions, data model, and API contract were our own – AI was used as a fast-typing assistant, not a decision-maker.
 
 ---
 
