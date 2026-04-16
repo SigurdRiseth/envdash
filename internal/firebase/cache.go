@@ -22,11 +22,13 @@ type CacheRepository interface {
 	Purge(ctx context.Context) (int, error)
 }
 
+// cacheDoc represents the structure of a cache entry stored in Firestore.
 type cacheDoc struct {
 	Data      string    `firestore:"data"`
 	ExpiresAt time.Time `firestore:"expiresAt"`
 }
 
+// cacheRepo is a Firestore-backed implementation of CacheRepository.
 type cacheRepo struct {
 	fs         *firestore.Client
 	collection string
@@ -49,6 +51,7 @@ func (r *cacheRepo) Get(ctx context.Context, key string) ([]byte, bool, error) {
 		return nil, false, fmt.Errorf("cache get %q: %w", key, err)
 	}
 
+	// Decode the document into a cache entry struct. If decoding fails, treat it as a cache miss
 	var entry cacheDoc
 	if err := doc.DataTo(&entry); err != nil {
 		return nil, false, fmt.Errorf("cache decode %q: %w", key, err)
@@ -86,18 +89,32 @@ func (r *cacheRepo) Purge(ctx context.Context) (int, error) {
 		return 0, fmt.Errorf("cache purge query: %w", err)
 	}
 
-	// Batch all deletes into a single Firestore write to minimise round-trips.
-	batch := r.fs.Batch()
-	for _, doc := range docs {
-		batch.Delete(doc.Ref)
+	// If no documents are expired, return early
+	if len(docs) == 0 {
+		return 0, nil
 	}
 
-	// Commit only if there is something to delete; an empty batch is a no-op but
-	// skipping it avoids an unnecessary RPC.
-	if len(docs) > 0 {
-		if _, err := batch.Commit(ctx); err != nil {
-			return 0, fmt.Errorf("cache purge commit: %w", err)
+	// Use a BulkWriter for efficient batch deletion of expired entries.
+	bw := r.fs.BulkWriter(ctx)
+	defer bw.End()
+
+	var writeErr error
+
+	// Queue deletions for all expired documents. BulkWriter can continue processing
+	for _, doc := range docs {
+		_, err := bw.Delete(doc.Ref)
+		if err != nil {
+			// Capture first error
+			writeErr = err
 		}
+	}
+
+	// Flush ensures all pending writes are sent
+	bw.Flush()
+
+	// Check if any deletion failed
+	if writeErr != nil {
+		return 0, fmt.Errorf("cache purge bulk delete: %w", writeErr)
 	}
 
 	return len(docs), nil

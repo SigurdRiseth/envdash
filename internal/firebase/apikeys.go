@@ -19,6 +19,7 @@ type APIKeyRepository interface {
 	Delete(ctx context.Context, key string) error
 }
 
+// apiKeyRepo is a Firestore-backed implementation of APIKeyRepository.
 type apiKeyRepo struct {
 	fs         *firestore.Client
 	collection string
@@ -65,6 +66,7 @@ func (r *apiKeyRepo) Delete(ctx context.Context, key string) error {
 		return fmt.Errorf("delete api key: %w", err)
 	}
 
+	// Document exists, proceed to delete.
 	if _, err := r.fs.Collection(r.collection).Doc(key).Delete(ctx); err != nil {
 		return fmt.Errorf("delete api key: %w", err)
 	}

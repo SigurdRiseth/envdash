@@ -12,6 +12,7 @@ import (
 	"envdash/internal/models"
 )
 
+// registrationsCollection is the Firestore collection name for dashboard registrations.
 const registrationsCollection = "registrations"
 
 // ErrNotFound is returned when a document does not exist.
@@ -26,6 +27,7 @@ type RegistrationRepository interface {
 	Delete(ctx context.Context, id string) error
 }
 
+// registrationRepo is a Firestore-backed implementation of RegistrationRepository.
 type registrationRepo struct {
 	fs         *firestore.Client
 	collection string
@@ -57,6 +59,7 @@ func (r *registrationRepo) Get(ctx context.Context, id string) (*models.Registra
 		return nil, fmt.Errorf("get registration %s: %w", id, err)
 	}
 
+	// Decode the document data into a Registration struct.
 	var reg models.Registration
 	if err := doc.DataTo(&reg); err != nil {
 		return nil, fmt.Errorf("decode registration %s: %w", id, err)
@@ -104,6 +107,7 @@ func (r *registrationRepo) Delete(ctx context.Context, id string) error {
 		return fmt.Errorf("delete registration %s: %w", id, err)
 	}
 
+	// Document exists, proceed to delete.
 	_, err = r.fs.Collection(r.collection).Doc(id).Delete(ctx)
 	if err != nil {
 		return fmt.Errorf("delete registration %s: %w", id, err)

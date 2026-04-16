@@ -20,16 +20,18 @@ func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
 	slog.SetDefault(logger)
 
+	// Context for background operations (e.g. cache purge).
 	ctx := context.Background()
 	startTime := time.Now()
 
+	// Load configuration from environment variables.
 	cfg, err := config.Load()
 	if err != nil {
 		logger.Error("failed to load config", "err", err)
 		os.Exit(1)
 	}
 
-	// Initialise Firebase Firestore
+	// Initialise Firebase Firestore client (shared across all repositories).
 	fs, err := firebase.NewFirestoreClient(ctx, cfg)
 	if err != nil {
 		logger.Error("failed to connect to Firestore", "err", err)
@@ -37,10 +39,10 @@ func main() {
 	}
 	defer fs.Close()
 
-	// Repositories
-	regRepo    := firebase.NewRegistrationRepo(fs)
-	notifRepo  := firebase.NewNotificationRepo(fs)
-	cacheRepo  := firebase.NewCacheRepo(fs)
+	// Repositories for data access (Firestore-based implementations).
+	regRepo := firebase.NewRegistrationRepo(fs)
+	notifRepo := firebase.NewNotificationRepo(fs)
+	cacheRepo := firebase.NewCacheRepo(fs)
 	apiKeyRepo := firebase.NewAPIKeyRepo(fs)
 
 	// HTTP client (shared across all outbound calls)
@@ -49,10 +51,10 @@ func main() {
 	// External API clients
 	ttlOverride := time.Duration(cfg.CacheTTLHours) * time.Hour
 	countriesClient := clients.NewCountriesClient(cfg.CountriesBaseURL, httpClient, cacheRepo, ttlOverride)
-	meteoClient     := clients.NewMeteoClient(cfg.MeteoBaseURL, httpClient, cacheRepo, ttlOverride)
-	openaqClient    := clients.NewOpenAQClient(cfg.OpenAQBaseURL, cfg.OpenAQKey, httpClient, cacheRepo, ttlOverride)
+	meteoClient := clients.NewMeteoClient(cfg.MeteoBaseURL, httpClient, cacheRepo, ttlOverride)
+	openaqClient := clients.NewOpenAQClient(cfg.OpenAQBaseURL, cfg.OpenAQKey, httpClient, cacheRepo, ttlOverride)
 	nominatimClient := clients.NewNominatimClient(cfg.NominatimBaseURL, httpClient, cacheRepo, ttlOverride)
-	currencyClient  := clients.NewCurrencyClient(cfg.CurrencyBaseURL, httpClient, cacheRepo, ttlOverride)
+	currencyClient := clients.NewCurrencyClient(cfg.CurrencyBaseURL, httpClient, cacheRepo, ttlOverride)
 
 	// Nominatim client is constructed but only used when Countries API lacks coordinates.
 	// It is wired into the dashboard service via a closure so the service layer doesn't
@@ -63,11 +65,11 @@ func main() {
 	dispatcher := webhook.NewDispatcher(httpClient, logger)
 
 	// Services
-	regSvc    := services.NewRegistrationService(regRepo, notifRepo, dispatcher)
-	dashSvc   := services.NewDashboardService(regRepo, notifRepo, countriesClient, meteoClient, openaqClient, currencyClient, dispatcher, logger)
-	notifSvc  := services.NewNotificationService(notifRepo)
+	regSvc := services.NewRegistrationService(regRepo, notifRepo, dispatcher)
+	dashSvc := services.NewDashboardService(regRepo, notifRepo, countriesClient, meteoClient, openaqClient, currencyClient, dispatcher, logger)
+	notifSvc := services.NewNotificationService(notifRepo)
 	statusSvc := services.NewStatusService(cfg, notifRepo, httpClient, startTime)
-	authSvc   := services.NewAuthService(apiKeyRepo)
+	authSvc := services.NewAuthService(apiKeyRepo)
 
 	// Background cache purge goroutine (advanced task)
 	if cfg.CachePurgeHours > 0 {
@@ -79,6 +81,7 @@ func main() {
 	addr := ":" + cfg.Port
 	logger.Info("envdash starting", "addr", addr)
 
+	// Configure HTTP server with timeouts to prevent resource exhaustion.
 	srv := &http.Server{
 		Addr:         addr,
 		Handler:      router,
@@ -86,6 +89,8 @@ func main() {
 		WriteTimeout: 30 * time.Second,
 		IdleTimeout:  120 * time.Second,
 	}
+
+	// Start the server and log any errors that cause it to stop.
 	if err := srv.ListenAndServe(); err != nil {
 		logger.Error("server stopped", "err", err)
 		os.Exit(1)
@@ -102,6 +107,7 @@ func runCachePurge(ctx context.Context, cache firebase.CacheRepository, interval
 		logger.Info("cache purge complete", "phase", "startup", "removed", n)
 	}
 
+	// Set up a ticker to trigger purges at the configured interval.
 	ticker := time.NewTicker(time.Duration(intervalHours) * time.Hour)
 	defer ticker.Stop()
 	for {
