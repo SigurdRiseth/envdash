@@ -64,7 +64,7 @@ func main() {
 	// Webhook dispatcher
 	dispatcher := webhook.NewDispatcher(httpClient, logger)
 
-	// Services
+	// ServicesS
 	regSvc := services.NewRegistrationService(regRepo, notifRepo, dispatcher)
 	dashSvc := services.NewDashboardService(regRepo, notifRepo, countriesClient, meteoClient, openaqClient, currencyClient, dispatcher, logger)
 	notifSvc := services.NewNotificationService(notifRepo)

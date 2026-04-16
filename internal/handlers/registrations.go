@@ -143,7 +143,7 @@ func (h *registrationHandler) update(w http.ResponseWriter, r *http.Request, id 
 
 // patch handles PATCH /registrations/{id} — partially update a registration.
 // Only the fields present in the JSON body are updated; all other fields are
-// left unchanged. Responds 200 OK with the full updated registration.
+// left unchanged. Responds 200 OK with an empty body on success.
 func (h *registrationHandler) patch(w http.ResponseWriter, r *http.Request, id string) {
 	var patch map[string]any
 	if !decodeJSON(w, r, &patch) {
