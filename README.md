@@ -276,7 +276,7 @@ Fields whose feature flag is `false` are omitted from the response. Fetching a d
 
 Notes:
 - `temperature` and `precipitation` are means across all Open-Meteo forecast entries.
-- `airQuality` aggregates PM readings across OpenAQ stations within 25 km of the country centroid.
+- `airQuality` aggregates PM readings across up to 5 OpenAQ stations within 25 km of the **capital city**. The capital's coordinates are resolved via Nominatim and fall back to the country centroid if geocoding fails.
 - `lastRetrieval` is always the current server time — it is never cached.
 - If one external API fails, that field is omitted while all others are still populated.
 
@@ -681,13 +681,13 @@ Air quality level is determined from PM2.5 concentration (µg/m³) using EPA AQI
 | 250.5+ | Hazardous |
 | No data (−1) | Unknown |
 
-The classification is based on the PM2.5 mean across all OpenAQ monitoring stations within 25 km of the country centroid. PM10 is reported separately alongside the PM2.5-derived level.
+The classification is based on the PM2.5 mean across up to 5 OpenAQ monitoring stations within 25 km of the **capital city** (coordinates resolved via Nominatim, falling back to the country centroid if geocoding fails). PM10 is reported separately alongside the PM2.5-derived level.
 
 ---
 
 ## Known Edge Cases & Limitations
 
-- **OpenAQ radius is 25 km, not 50 km:** The assignment specification states 50 km, but the OpenAQ v3 API enforces a hard limit of 25,000 m per request. If no monitoring stations are found within 25 km, air quality is reported as `{"pm25": -1, "pm10": -1, "level": "Unknown"}`.
+- **OpenAQ radius is 25 km, not 50 km:** The assignment specification states 50 km, but the OpenAQ v3 API enforces a hard limit of 25,000 m per request. Stations are searched around the **capital city** (not the country centroid, which is often in a rural area with no monitoring stations). If no stations with PM2.5 or PM10 sensors are found within 25 km of the capital, air quality is reported as `{"pm25": -1, "pm10": -1, "level": "Unknown"}`.
 - **Threshold registered for a disabled field:** A THRESHOLD webhook can be registered for any field (e.g. `pm25`) regardless of whether that field is enabled in the dashboard configuration (`airQuality: false`). The webhook is stored successfully but will never fire, because the field value is never populated during dashboard retrieval. This is intentional and matches the specification.
 - **`lastRetrieval` is never cached:** The timestamp in a dashboard response always reflects the actual time of the request, not when the underlying data was last fetched from external APIs.
 - **Multiple capital cities:** When a country has more than one listed capital (e.g. South Africa), the first value returned by the REST Countries API is used.
