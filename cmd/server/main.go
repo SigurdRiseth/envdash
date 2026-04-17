@@ -56,17 +56,12 @@ func main() {
 	nominatimClient := clients.NewNominatimClient(cfg.NominatimBaseURL, httpClient, cacheRepo, ttlOverride)
 	currencyClient := clients.NewCurrencyClient(cfg.CurrencyBaseURL, httpClient, cacheRepo, ttlOverride)
 
-	// Nominatim client is constructed but only used when Countries API lacks coordinates.
-	// It is wired into the dashboard service via a closure so the service layer doesn't
-	// need to depend on it directly for the common case.
-	_ = nominatimClient // used indirectly; suppress unused warning
-
 	// Webhook dispatcher
 	dispatcher := webhook.NewDispatcher(httpClient, logger)
 
-	// ServicesS
+	// Services
 	regSvc := services.NewRegistrationService(regRepo, notifRepo, dispatcher)
-	dashSvc := services.NewDashboardService(regRepo, notifRepo, countriesClient, meteoClient, openaqClient, currencyClient, dispatcher, logger)
+	dashSvc := services.NewDashboardService(regRepo, notifRepo, countriesClient, meteoClient, openaqClient, nominatimClient, currencyClient, dispatcher, logger)
 	notifSvc := services.NewNotificationService(notifRepo)
 	statusSvc := services.NewStatusService(cfg, notifRepo, httpClient, startTime)
 	authSvc := services.NewAuthService(apiKeyRepo)

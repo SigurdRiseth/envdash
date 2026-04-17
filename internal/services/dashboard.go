@@ -22,6 +22,7 @@ type dashboardService struct {
 	countries  *clients.CountriesClient
 	meteo      *clients.MeteoClient
 	openaq     *clients.OpenAQClient
+	nominatim  *clients.NominatimClient
 	currency   *clients.CurrencyClient
 	dispatcher *webhook.Dispatcher
 	logger     *slog.Logger
@@ -34,6 +35,7 @@ func NewDashboardService(
 	countries *clients.CountriesClient,
 	meteo *clients.MeteoClient,
 	openaq *clients.OpenAQClient,
+	nominatim *clients.NominatimClient,
 	currency *clients.CurrencyClient,
 	dispatcher *webhook.Dispatcher,
 	logger *slog.Logger,
@@ -44,6 +46,7 @@ func NewDashboardService(
 		countries:  countries,
 		meteo:      meteo,
 		openaq:     openaq,
+		nominatim:  nominatim,
 		currency:   currency,
 		dispatcher: dispatcher,
 		logger:     logger,
@@ -100,20 +103,34 @@ func (s *dashboardService) Get(ctx context.Context, id string) (*models.Dashboar
 		lat, lon = countryData.Latitude, countryData.Longitude
 	}
 
-	// Fan out independent API calls concurrently.
-	var wg sync.WaitGroup
-	var (
-		meteoData    *clients.MeteoData
-		openaqData   *clients.OpenAQData
-		currencyRates map[string]float64
-		meteoErr     error
-		openaqErr    error
-		currencyErr  error
-	)
-
 	needsMeteo    := f.Temperature || f.Precipitation
 	needsOpenAQ   := f.AirQuality
 	needsCurrency := len(f.TargetCurrencies) > 0 && countryData != nil && countryData.BaseCurrency != ""
+
+	// For OpenAQ, prefer capital city coordinates over the country centroid.
+	// Country centroids are often in rural areas far from monitoring stations,
+	// while the capital is reliably a populated city with air quality data.
+	// Falls back to the centroid if Nominatim fails or the capital is unknown.
+	openaqLat, openaqLon := lat, lon
+	if needsOpenAQ && countryData != nil && countryData.Capital != "" {
+		if capCoords, err := s.nominatim.GetCityCoordinates(ctx, countryData.Capital, reg.ISOCode); err == nil {
+			openaqLat, openaqLon = capCoords.Latitude, capCoords.Longitude
+		} else {
+			s.logger.Warn("nominatim capital lookup failed, falling back to centroid",
+				"country", reg.ISOCode, "capital", countryData.Capital, "err", err)
+		}
+	}
+
+	// Fan out independent API calls concurrently.
+	var wg sync.WaitGroup
+	var (
+		meteoData     *clients.MeteoData
+		openaqData    *clients.OpenAQData
+		currencyRates map[string]float64
+		meteoErr      error
+		openaqErr     error
+		currencyErr   error
+	)
 
 	if needsMeteo && lat != 0 {
 		wg.Add(1)
@@ -122,11 +139,11 @@ func (s *dashboardService) Get(ctx context.Context, id string) (*models.Dashboar
 			meteoData, meteoErr = s.meteo.GetForecast(ctx, lat, lon)
 		}()
 	}
-	if needsOpenAQ && lat != 0 {
+	if needsOpenAQ && openaqLat != 0 {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			openaqData, openaqErr = s.openaq.GetAirQuality(ctx, lat, lon)
+			openaqData, openaqErr = s.openaq.GetAirQuality(ctx, openaqLat, openaqLon)
 		}()
 	}
 	if needsCurrency {

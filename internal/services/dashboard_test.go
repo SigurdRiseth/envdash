@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -65,9 +66,23 @@ func newMeteoStubServer() *httptest.Server {
 }
 
 func newOpenAQStubServer() *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if strings.Contains(r.URL.Path, "/latest") {
+			// /v3/locations/{id}/latest — return pm25 and pm10 readings
+			fmt.Fprint(w, `{"results":[{"sensorsId":101,"value":8.5},{"sensorsId":102,"value":14.2}]}`)
+		} else {
+			// /v3/locations?... — return one station with pm25 and pm10 sensors
+			fmt.Fprint(w, `{"results":[{"id":1,"sensors":[{"id":101,"parameter":{"name":"pm25"}},{"id":102,"parameter":{"name":"pm10"}}]}]}`)
+		}
+	}))
+}
+
+func newNominatimStubServer() *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprint(w, `{"results":[{"id":1,"sensors":[],"latestMeasurements":[{"parameter":{"name":"pm25"},"value":8.5},{"parameter":{"name":"pm10"},"value":14.2}]}]}`)
+		// Oslo coordinates — used when capital="Oslo" is geocoded for Norway
+		fmt.Fprint(w, `[{"lat":"59.9138688","lon":"10.7522454"}]`)
 	}))
 }
 
@@ -90,6 +105,7 @@ type dashboardTestServers struct {
 	countries *httptest.Server
 	meteo     *httptest.Server
 	openaq    *httptest.Server
+	nominatim *httptest.Server
 	currency  *httptest.Server
 }
 
@@ -98,6 +114,7 @@ func newDefaultDashServers() *dashboardTestServers {
 		countries: newCountriesStubServer(),
 		meteo:     newMeteoStubServer(),
 		openaq:    newOpenAQStubServer(),
+		nominatim: newNominatimStubServer(),
 		currency:  newCurrencyStubServer(),
 	}
 }
@@ -106,6 +123,7 @@ func (s *dashboardTestServers) close() {
 	s.countries.Close()
 	s.meteo.Close()
 	s.openaq.Close()
+	s.nominatim.Close()
 	s.currency.Close()
 }
 
@@ -132,6 +150,7 @@ func buildDashServiceWithDispatcher(
 		clients.NewCountriesClient(srvs.countries.URL, hc, cache, 0),
 		clients.NewMeteoClient(srvs.meteo.URL, hc, cache, 0),
 		clients.NewOpenAQClient(srvs.openaq.URL, "", hc, cache, 0),
+		clients.NewNominatimClient(srvs.nominatim.URL, hc, cache, 0),
 		clients.NewCurrencyClient(srvs.currency.URL, hc, cache, 0),
 		dispatcher,
 		nopLogger,

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"envdash/internal/firebase"
@@ -116,6 +117,60 @@ func (c *NominatimClient) GetCoordinates(ctx context.Context, iso string) (*Nomi
 
 	data := &NominatimData{Latitude: lat, Longitude: lon}
 
+	cacheSet(ctx, c.cache, key, c.cacheTTL, data)
+
+	return data, nil
+}
+
+// GetCityCoordinates returns coordinates for the given city within the country
+// identified by isoCode. It is used to find the capital city's coordinates for
+// OpenAQ lookups, since country centroids are often in rural areas without
+// monitoring stations. Results are cached for 24 hours.
+func (c *NominatimClient) GetCityCoordinates(ctx context.Context, city, isoCode string) (*NominatimData, error) {
+	key := "nominatim:city:" + strings.ToUpper(isoCode)
+
+	if data, ok := cacheGet[NominatimData](ctx, c.cache, key); ok {
+		return &data, nil
+	}
+
+	select {
+	case <-c.throttle:
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+
+	params := url.Values{}
+	params.Set("q", city)
+	params.Set("countrycodes", strings.ToLower(isoCode))
+	params.Set("format", "json")
+	params.Set("limit", "1")
+
+	reqURL := fmt.Sprintf("%s/search?%s", c.baseURL, params.Encode())
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("nominatim: build request: %w", err)
+	}
+	req.Header.Set("User-Agent", nominatimUserAgent)
+
+	var results []nominatimResult
+	if err := fetchJSON(c.http, req, &results, "nominatim"); err != nil {
+		return nil, err
+	}
+
+	if len(results) == 0 {
+		return nil, fmt.Errorf("nominatim: no results for city %q in %q", city, isoCode)
+	}
+
+	lat, err := strconv.ParseFloat(results[0].Lat, 64)
+	if err != nil {
+		return nil, fmt.Errorf("nominatim: parse latitude: %w", err)
+	}
+	lon, err := strconv.ParseFloat(results[0].Lon, 64)
+	if err != nil {
+		return nil, fmt.Errorf("nominatim: parse longitude: %w", err)
+	}
+
+	data := &NominatimData{Latitude: lat, Longitude: lon}
 	cacheSet(ctx, c.cache, key, c.cacheTTL, data)
 
 	return data, nil
