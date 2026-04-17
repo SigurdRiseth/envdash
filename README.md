@@ -158,6 +158,40 @@ Either `country` or `isoCode` (or both) must be provided.
 }
 ```
 
+**GET /registrations/ — response 200 OK:**
+
+Returns an array of all stored configurations. Returns an empty array `[]` when none exist.
+
+```json
+[
+  {
+    "id": "7f3a91bc04e2d158",
+    "country": "Norway",
+    "isoCode": "NO",
+    "features": {
+      "temperature": true,
+      "precipitation": true,
+      "airQuality": true,
+      "capital": true,
+      "coordinates": true,
+      "population": true,
+      "area": false,
+      "targetCurrencies": ["EUR", "USD", "SEK"]
+    },
+    "lastChange": "20250301 09:15"
+  }
+]
+```
+
+**HEAD /registrations/ — response 200 OK:**
+
+No body. Sets the same `Content-Type` and `Content-Length` as `GET /registrations/` would, allowing clients to determine payload size before making a full request.
+
+```
+Content-Type: application/json
+Content-Length: 345
+```
+
 **GET /registrations/{id} — response 200 OK:**
 
 ```json
@@ -179,11 +213,36 @@ Either `country` or `isoCode` (or both) must be provided.
 }
 ```
 
+**PUT /registrations/{id}** — request body is identical to `POST /registrations/`. All fields are replaced; omitted feature flags default to `false`. Responds `200 OK` with an empty body on success.
+
 **PATCH /registrations/{id}** — send only the fields you want to change. Nested `features` fields are also patchable individually:
 
 ```json
 { "features": { "airQuality": false } }
 ```
+
+**Response 200 OK** — the full updated registration:
+
+```json
+{
+  "id": "7f3a91bc04e2d158",
+  "country": "Norway",
+  "isoCode": "NO",
+  "features": {
+    "temperature": true,
+    "precipitation": true,
+    "airQuality": false,
+    "capital": true,
+    "coordinates": true,
+    "population": true,
+    "area": false,
+    "targetCurrencies": ["EUR", "USD", "SEK"]
+  },
+  "lastChange": "20250301 09:22"
+}
+```
+
+**DELETE /registrations/{id}** — responds `204 No Content` on success, `404 Not Found` if the ID does not exist.
 
 ---
 
@@ -286,6 +345,61 @@ Notes:
 { "id": "kDwvOIcsueiwe" }
 ```
 
+**GET /notifications/ — response 200 OK:**
+
+Returns an array of all registered webhooks. Returns an empty array `[]` when none exist.
+
+```json
+[
+  {
+    "id": "kDwvOIcsueiwe",
+    "url": "https://webhook.site/your-unique-id",
+    "country": "NO",
+    "event": "INVOKE"
+  },
+  {
+    "id": "mP9xTqwRklzc",
+    "url": "https://webhook.site/your-unique-id",
+    "country": "NO",
+    "event": "THRESHOLD",
+    "threshold": [
+      { "field": "temperature", "operator": ">",  "value": 0 },
+      { "field": "temperature", "operator": "<=", "value": 5 }
+    ]
+  }
+]
+```
+
+**GET /notifications/{id} — response 200 OK:**
+
+```json
+{
+  "id": "kDwvOIcsueiwe",
+  "url": "https://webhook.site/your-unique-id",
+  "country": "NO",
+  "event": "INVOKE"
+}
+```
+
+**PATCH /notifications/{id}** — send only the fields you want to change. The `threshold` array, if provided, replaces the existing conditions entirely.
+
+```json
+{ "url": "https://webhook.site/new-id" }
+```
+
+**Response 200 OK** — the full updated notification:
+
+```json
+{
+  "id": "kDwvOIcsueiwe",
+  "url": "https://webhook.site/new-id",
+  "country": "NO",
+  "event": "INVOKE"
+}
+```
+
+**DELETE /notifications/{id}** — responds `204 No Content` on success, `404 Not Found` if the ID does not exist.
+
 **Webhook payload — lifecycle event:**
 
 ```json
@@ -358,6 +472,15 @@ X-API-Key: sk-envdash-a3f9c2b1e847d056...
 | Key unknown or revoked | `403 Forbidden` |
 | Key valid | Request proceeds normally |
 
+### Auth endpoints
+
+| Method | Path | Status Codes | Description |
+|--------|------|--------------|-------------|
+| `POST` | `/auth/` | 201 | Register a new API key |
+| `DELETE` | `/auth/{key}` | 204, 404 | Revoke an existing API key |
+
+No `X-API-Key` header is required for these endpoints.
+
 **Register a key — POST /auth/:**
 
 ```json
@@ -368,7 +491,7 @@ X-API-Key: sk-envdash-a3f9c2b1e847d056...
 { "key": "sk-envdash-a3f9c2b1e847d056", "createdAt": "20250301 09:15" }
 ```
 
-**Revoke a key — DELETE /auth/{key}:** returns `204 No Content`.
+**Revoke a key — DELETE /auth/{key}:** responds `204 No Content` on success, `404 Not Found` if the key does not exist.
 
 Keys are stored in Firestore and persist across service restarts.
 
